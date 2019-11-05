@@ -78,7 +78,7 @@ void init_Q_igl(int id_vs, MatrixXd &V, MatrixXi E, std::queue<Window> &Q)
 // }
 
 /**
- * Compute exact geodesics fron a source vertex to very over vertices of the mesh.
+ * Compute exact geodesics from a source vertex to very over vertices of the mesh.
  * input:
  *    F: faces of the mesh where to compute geodesics pathes
  *    V: vertexes of the mesh where to compute geodesics pathes
@@ -122,14 +122,15 @@ void exact_geodesics_igl(MatrixXi &F, MatrixXd &V, int id_vs)
  */
 void retrieve_path(Vector3d &vs, Vector3d &ve)
 {
+  // TODO
 }
 
 void example_1()
 {
   igl::readOFF("../data/star.off", V1, F1);
-  Vector3d vs = V1.row(0);
+  int id_vs = 0;
 
-  exact_geodesics_igl(F1, V1, vs);
+  exact_geodesics_igl(F1, V1, id_vs);
 
   igl::opengl::glfw::Viewer viewer;
   set_meshes(viewer);

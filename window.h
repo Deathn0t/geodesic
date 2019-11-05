@@ -15,11 +15,11 @@ public:
 
     Window(Vector3d b0, Vector3d b1, double d0, double d1, double sigma, int dir)
     {
-        this.b0 = b0;
-        this.b1 = b1;
-        this.d0 = d0;
-        this.d1 = d1;
-        this.sigma = sigma;
-        this.dir = dir;
+        this->b0 = b0;
+        this->b1 = b1;
+        this->d0 = d0;
+        this->d1 = d1;
+        this->sigma = sigma;
+        this->dir = dir;
     }
 };
