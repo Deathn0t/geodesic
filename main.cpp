@@ -9,11 +9,17 @@
 #include <ostream>
 #include <queue>
 
+#include "HalfedgeBuilder.cpp"
+
 #include "window.h"
 
-using namespace Eigen; // to use the classes provided by Eigen library
+using namespace Eigen;
+using namespace std;
+ // to use the classes provided by Eigen library
 MatrixXd V1;           // matrix storing vertex coordinates of the input curve
 MatrixXi F1;
+
+
 
 bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
 {
@@ -25,14 +31,14 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
     viewer.data(0).set_mesh(V1, F1);
     viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3)); // update the mesh (both coordinates and faces)
   }
-
+  
   return false;
 }
 
-void set_meshes(igl::opengl::glfw::Viewer &viewer)
+void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F)
 {
   viewer.callback_key_down = &key_down; // for dealing with keyboard events
-  viewer.data().set_mesh(V1, F1);
+  viewer.data().set_mesh(V, F);
   viewer.append_mesh();
   viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3));
 }
@@ -52,24 +58,76 @@ void set_pc(igl::opengl::glfw::Viewer &viewer)
  * output:
  *  - Q: the queue to initialize.
  */
-void init_Q_igl(int id_vs, MatrixXd &V, MatrixXi E, std::queue<Window> &Q)
+
+float distance(Vector3d &v1, Vector3d &v2) 
+{ 
+    return sqrt(pow(v2(2) - v1(2), 2) +  pow(v2(1) - v1(1), 2) +  pow(v2(0) - v1(0), 2)); 
+} 
+
+void add_window_Q(std::queue<Window> &Q,Vector3d &v1, Vector3d &v2,int edge_id)
+{
+  double d0 = 0.0;
+  double d1 = distance(v1,v2);
+  double sigma = 0;
+  int dir = 0;
+  Q.push(Window(v1,v2,d0,d1,sigma,dir,edge_id));
+    
+}
+void init_Q_igl(HalfedgeDS &he,int id_vs, MatrixXd &V, std::queue<Window> &Q)
 {
   // TODO
-  Q = std::queue<Window>();
-  Window cur_w; // current window
+  Q = std::queue<Window>(); 
+  Vector3d vs = V1.row(id_vs);
+
+  int incidentEdge =  he.getEdge(id_vs);
+	int nextEdge = he.getNext(incidentEdge);
+	Vector3d firstIncidentVertex = V1.row(he.getTarget(nextEdge));
+  add_window_Q(Q,vs,firstIncidentVertex,nextEdge);
+
+  nextEdge = he.getNext(he.getOpposite(nextEdge));
+	Vector3d nextIncidentVertex = V1.row(he.getTarget(nextEdge));
+  add_window_Q(Q,vs,nextIncidentVertex,nextEdge);
+
+	while (nextIncidentVertex!= firstIncidentVertex)
+	{
+        nextEdge = he.getNext(he.getOpposite(nextEdge));         
+				nextIncidentVertex = V1.row(he.getTarget(nextEdge));
+        if(nextIncidentVertex!= firstIncidentVertex)
+        {
+          add_window_Q(Q,vs,nextIncidentVertex,nextEdge);
+        }
+  }
+				
+  /*
+
+  Window cur_w;
+
   for (int e = 0; e < E.rows(); e++)
   {
+    
     // D(E(e, 0), 0) = D(E(e, 0), 0) + 1;
     // D(E(e, 1), 0) = D(E(e, 1), 0) + 1;
     // std::cout << E(e, 0) << ", " << E(e, 1) << std::endl;
+
     if (id_vs == E(e, 0))
     {
-      cur_w = Window();
+       Vector3d b0 = V1.row(E(e, 0));
+       Vector3d b1 = V1.row(E(e, 1));
+       
+       double d0 = 0.0;
+       double d1 = distance(b1,b0);
+       double sigma = 0;
+       int dir = 0;
+       cur_w = Window(b0,b1,d0,d1,sigma,dir);
+       
+       Q.push(cur_w);
+
     }
-    else if (id_vs == E(e, 1))
-    {
-    }
+    
   }
+  */
+  std::cout<<Q.size();
+  
 }
 
 // void init_Q_He(queue<Window> &Q, Vector3d &vs)
@@ -86,17 +144,21 @@ void init_Q_igl(int id_vs, MatrixXd &V, MatrixXi E, std::queue<Window> &Q)
  * output:
  *    ...: something with all windows computed to apply backtracing?
  */
-void exact_geodesics_igl(MatrixXi &F, MatrixXd &V, int id_vs)
+void exact_geodesics_igl(HalfedgeDS &he,MatrixXd &V, MatrixXi &F, int id_vs)
 {
+  
   // initialize the queue Q with a window for each edge adjacent
   // to source: source_v_t
   std::queue<Window> Q; // Q.push(..); Q.front(); Q.pop();
-  Window cur_w;         // current window during iterations
-  MatrixXi E;
-  igl::edges(F, E); //! computed once here for efficiency
+  //Window cur_w;         // current window during iterations
+  //MatrixXi E;
+  //igl::edges(F, E);
+  //std::cout<<E; //! computed once here for efficiency
 
-  init_Q_igl(id_vs, V, E, Q); // init Q with libigl DS
+  init_Q_igl(he,id_vs, V, Q); // init Q with libigl DS
 
+   
+/*
   while (!Q.empty())
   {
     // select and remove a Window from Q
@@ -109,6 +171,7 @@ void exact_geodesics_igl(MatrixXi &F, MatrixXd &V, int id_vs)
     // update queue with new windows
     // TODO
   }
+  */
 }
 
 /**
@@ -122,17 +185,21 @@ void exact_geodesics_igl(MatrixXi &F, MatrixXd &V, int id_vs)
  */
 void retrieve_path(Vector3d &vs, Vector3d &ve)
 {
+
 }
 
 void example_1()
 {
   igl::readOFF("../data/star.off", V1, F1);
-  Vector3d vs = V1.row(0);
-
-  exact_geodesics_igl(F1, V1, vs);
+   
+  int vs = 0;
+  HalfedgeBuilder *builder = new HalfedgeBuilder();
+  HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1)); 
+   
+  exact_geodesics_igl(he,V1, F1, vs);
 
   igl::opengl::glfw::Viewer viewer;
-  set_meshes(viewer);
+  set_meshes(viewer,V1,F1);
   viewer.launch();
 }
 
