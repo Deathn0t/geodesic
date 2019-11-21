@@ -13,12 +13,12 @@ private:
     int edge_id;
     Vector3d v0;
     Vector3d v1;
-        // direction of s fron the directed edge e
+    // direction of s fron the directed edge e
 
 public:
     Window() {}
 
-    Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigma, int f_dir, int f_edge_id,Vector3d &f_v0,Vector3d &f_v1)
+    Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigma, int f_dir, int f_edge_id, Vector3d &f_v0, Vector3d &f_v1)
     {
         b0 = f_b0;
         b1 = f_b1;
@@ -64,5 +64,15 @@ public:
     Vector3d get_v1()
     {
         return v1;
+    }
+
+    double get_d0()
+    {
+        return d0;
+    }
+
+    double get_d1()
+    {
+        return d1;
     }
 };
