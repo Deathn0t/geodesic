@@ -48,18 +48,13 @@ void set_pc(igl::opengl::glfw::Viewer &viewer)
   viewer.data().add_points(V1, Eigen::RowVector3d(0.3, 0.8, 0.3));
 }
 
-float distance(Vector3d &v1, Vector3d &v2)
-{
-  return sqrt(pow(v2(2) - v1(2), 2) + pow(v2(1) - v1(1), 2) + pow(v2(0) - v1(0), 2));
-}
-
 void add_window_Q(std::queue<Window> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id)
 {
   double b0 = 0.;
-  double b1 = distance(v0, v1);
+  double b1 = (v1 - v0).norm();
 
-  double d0 = distance(vs, v0);
-  double d1 = distance(vs, v1);
+  double d0 = (vs - v0).norm();
+  double d1 = (vs - v1).norm();
 
   double sigma = 0;
   int dir = 0;
@@ -106,14 +101,19 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window> &Q)
   // std::cout<<Q.size()<<std::endl;
 }
 
-void propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
+list<Window> propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
 {
-  // On calcule nos angles de rotation entre notre ancien repere et le nouveau
+  list<Window> lw;
+
+  // we take the 3 points of our face in 3d representation
+
+  int edgeid_p0p2 = he.getNext(he.getOpposite(w.get_edge_id()));
   Vector3d p03d, p13d, p23d;
   p03d = w.get_v0();
   p13d = w.get_v1();
-  p23d = V.row(he.getTarget(he.getNext(he.getOpposite(w.get_edge_id())))).transpose();
+  p23d = V.row(he.getTarget(edgeid_p0p2)).transpose();
 
+  // our x-axis is the (p0,p1) ligne then we compute the angle theta between (p0,p1) and (p0,p2) to get p2 in our 2D representation
   Vector3d u = p03d - p13d;
   Vector3d v = p03d - p23d;
   double theta = acos(u.dot(v) / (u.norm() * v.norm()));
@@ -124,45 +124,73 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
   p22d = Vector2d(cos(theta) * (p23d - p03d).norm(), sin(theta) * (p23d - p03d).norm());
 
   // Computation vs (pseudo source) for new windows, intersection of 2 circles
-  double x0, x1, y1, d0, d1, b, c, delta, x, y_vs1, y_vs2;
-  x0 = p02d(0);
-  x1 = p12d(0);
-  y1 = p12d(1);
+  // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
+  double x0, x1, d0, d1, c, delta, x, y_vs1, y_vs2;
+  x0 = w.get_b0();
+  x1 = w.get_b1();
   d0 = w.get_d0();
   d1 = w.get_d1();
   x = (d1 * d1 - d0 * d0 - x1 * x1 + x0 * x0) / (2 * (x0 - x1));
-  b = -2 * y1;
-  c = x1 * x1 + x * x - 2 * x1 * x + y1 * y1 - d1 * d1;
-  delta = sqrt(b * b - 4 * c);
-  y_vs1 = (-b + delta) / 2;
-  y_vs2 = (-b - delta) / 2;
+  c = x1 * x1 + x * x - 2 * x1 * x - d1 * d1;
+  delta = sqrt(-4 * c);
+  y_vs1 = delta / 2;
+  y_vs2 = -delta / 2;
 
-  // Possible edges in the plan where x-axis is the current edge of the window
-  Vector2d vs1 = Vector2d(x, y_vs1);
-  Vector2d vs2 = Vector2d(x, y_vs2);
-  std::cout << "vs1: " << vs1 << std::endl;
-  std::cout << "vs2: " << vs2 << std::endl;
+  // filter different cases
+  if (w.get_b0() < 1e-10)
+  {
+    Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d);
+  }
 
-  // if (vs(1) > 0)
-  // {
-  //   vs = vs1;
-  // }
-  // else
-  // {
-  //   vs = vs2;
-  //   // vs = R * vs2;
-  //   // std::cout << "R * vs2: " << vs << std::endl;
-  // }
+  // we have the two possibles sources, we choosed the one with a positive y
+  Vector2d vs;
+  if (y_vs1 > 0.)
+  {
+    vs = Vector2d(x, y_vs1);
+  }
+  else
+  {
+    vs = Vector2d(x, y_vs2);
+  }
 
-  // Vector2d f0, f1;
-  // f0 = vs - b02d;
-  // f1 = vs - b12d;
-  // double b0_new_w, b1_new_w;
-  // b0_new_w = -f0(1) / f0(0);
-  // b1_new_w = -f1(1) / f1(0);
+  // solve linear system to find both lines
+  // a*b0 + b = 0
+  // a*vsx + b = vsy
+  Vector2d l0, l1, lb; // two sides of the pencil of lights
+  MatrixXd lA = Matrix2d(2, 2);
+  lA(0, 0) = w.get_b0();
+  lA(0, 1) = 1.;
+  lA(1, 0) = vs(0);
+  lA(1., 1.) = 1.;
+  lb(0) = 0;
+  lb(1) = vs(1);
+  l0 = lA.colPivHouseholderQr().solve(lb); // first line
 
-  // std::cout << "b0_new_w: " << b0_new_w << std::endl;
-  // std::cout << "b1_new_w: " << b1_new_w << std::endl;
+  lA(0, 0) = w.get_b1();
+  l1 = lA.colPivHouseholderQr().solve(lb); // second line
+
+  Vector2d lp0p2 = Vector2d(p22d(1) / p22d(0), 0.); // line (p0,p2)
+
+  Vector2d lp1p2; // line (p1,p2)
+  lA(0, 0) = p12d(0);
+  lA(1, 0) = p22d(0);
+  lb(1) = p22d(1);
+  lp1p2 = lA.colPivHouseholderQr().solve(lb);
+
+  Vector2d int_l0_lp0p2;
+  // x coord. of the intersection between l0 and (p0,p2)
+  int_l0_lp0p2(0) = (lp0p2(1) - l0(1)) / (lp0p2(0) - l0(0));
+  // y coord. of the intersection between l0 and (p0,p2)
+  int_l0_lp0p2(1) = l0(0) * int_l0_lp0p2(0) + l0(1);
+
+  Vector2d int_l1_lp0p2;
+  // x coord. of the intersection between l1 and (p0,p2)
+  int_l1_lp0p2(0) = (lp0p2(1) - l1(1)) / (lp0p2(0) - l1(0));
+  // y coord. of the intersection between l1 and (p0,p2)
+  int_l1_lp0p2(1) = l1(0) * int_l1_lp0p2(0) + l1(1);
+
+  std::cout << "int. l0 and lp0p2: " << int_l0_lp0p2 << std::endl;
+  std::cout << "int. l1 and lp0p2: " << int_l1_lp0p2 << std::endl;
 
   //http://math.15873.pagesperso-orange.fr/IntCercl.html
   /* HOW TO PROPAGATE?
@@ -195,6 +223,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
   // initialize the queue Q with a window for each edge adjacent
   // to source: source_v_t
   std::queue<Window> Q; // Q.push(..); Q.front(); Q.pop();
+  std::map<int, list<Window> &> e2w;
   init_Q(he, id_vs, V, Q);
 
   Window cur_w; // current window during iterations
@@ -205,9 +234,9 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     cur_w = Q.front();
     Q.pop();
 
+    // propagate selected window
     propagate_window(V, he, cur_w);
     return;
-    // propagate selected window
     // TODO
 
     // update queue with new windows
@@ -243,7 +272,22 @@ void example_1()
   viewer.launch();
 }
 
+void print_l(list<int> l)
+{
+  for (auto v : l)
+    std::cout << v << ", ";
+  std::cout << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
-  example_1();
+  // example_1();
+  std::map<int, list<int> *> l;
+  l[0] = new list<int>();
+  l[1] = l[0];
+  l[0]->push_front(1);
+  std::cout << "l0: ";
+  print_l(*l[0]);
+  std::cout << "l1: ";
+  print_l(*l[1]);
 }
