@@ -28,7 +28,8 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
 
     viewer.data(0).clear(); // Clear should be called before drawing the mesh
     viewer.data(0).set_mesh(V1, F1);
-    viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3)); // update the mesh (both coordinates and faces)
+    viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3));
+    // update the mesh (both coordinates and faces)
   }
 
   return false;
@@ -39,7 +40,28 @@ void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F)
   viewer.callback_key_down = &key_down; // for dealing with keyboard events
   viewer.data().set_mesh(V, F);
   viewer.append_mesh();
-  viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3));
+  viewer.data(0).show_faces = false;
+}
+
+void addColorEdge(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, Window &w)
+{
+  std::cout << "color edges" << std::endl;
+  MatrixXi edgeVertices(1, 2);
+  edgeVertices(0, 0) = w.get_v0id();
+  edgeVertices(0, 1) = w.get_v1id();
+
+  float coefb0 = w.get_b0() / (w.get_v0() - w.get_v1()).norm();
+  float coefb1 = w.get_b1() / (w.get_v0() - w.get_v1()).norm();
+
+  MatrixXd b0b1(2, 3);
+  b0b1.row(0) = coefb0 * (w.get_v0() + w.get_v1());
+  b0b1.row(1) = coefb1 * (w.get_v0() + w.get_v1());
+
+  viewer.data(1).add_points()
+      viewer.data(1)
+          .add_points(edgeVertices, Eigen::RowVector3d(1, 1, 1));
+  viewer.data(1).add_points(b0b1, Eigen::RowVector3d(1, 0, 0));
+  //viewer.data(1).set_edges(V1, edgeVertices, Eigen::RowVector3d(1, 1, 1));
 }
 
 void set_pc(igl::opengl::glfw::Viewer &viewer)
@@ -48,7 +70,7 @@ void set_pc(igl::opengl::glfw::Viewer &viewer)
   viewer.data().add_points(V1, Eigen::RowVector3d(0.3, 0.8, 0.3));
 }
 
-void add_window_Q(std::queue<Window> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id)
+void add_window_Q(std::map<int, list<Window *> *> &e2w, std::queue<Window *> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
 {
   double b0 = 0.;
   double b1 = (v1 - v0).norm();
@@ -58,9 +80,25 @@ void add_window_Q(std::queue<Window> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v
 
   double sigma = 0;
   int dir = 0;
-  Q.push(Window(b0, b1, d0, d1, sigma, dir, edge_id, v0, v1));
+
+  Window *newWindow;
+  newWindow = new Window(b0, b1, d0, d1, sigma, dir, edge_id, v0, v1, v0id, v1id);
+  Q.push(newWindow);
+
+  e2w[edge_id]->push_front(newWindow);
 }
 
+void init_edgeid2windows(std::map<int, list<Window *> *> &e2w, HalfedgeDS &he)
+{
+  for (int e_id = 0; e_id < he.sizeOfHalfedges(); e_id++)
+  {
+    if (e2w.find(e_id) == e2w.end())
+    {
+      e2w[e_id] = new list<Window *>();
+      e2w[he.getOpposite(e_id)] = e2w[e_id];
+    }
+  }
+}
 /**
  * Initialize a queue Q with a window for each edge adjacent to source vs.
  * input:
@@ -72,42 +110,64 @@ void add_window_Q(std::queue<Window> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v
  *
  *
  */
-void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window> &Q)
+void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
 {
-  // TODO
-  Q = std::queue<Window>();
 
   Vector3d vs, v_init, v_b0, v_b1;
   int incidentEdge, nextEdge;
+  int v0id, v1id;
 
   vs = V.row(id_vs);
   incidentEdge = he.getEdge(id_vs);
   nextEdge = he.getNext(incidentEdge);
   v_init = V.row(he.getTarget(nextEdge));
+  v0id = he.getTarget(nextEdge);
 
   nextEdge = he.getNext(nextEdge);
+  v1id = he.getTarget(nextEdge);
   v_b1 = V.row(he.getTarget(nextEdge));
-  add_window_Q(Q, vs, v_init, v_b1, nextEdge);
+
+  add_window_Q(e2w, Q, vs, v_init, v_b1, nextEdge, v0id, v1id);
 
   while (v_init != v_b1)
   {
     v_b0 = v_b1;
-
+    v0id = v1id;
     nextEdge = he.getNext(he.getOpposite(he.getNext(nextEdge)));
     v_b1 = V.row(he.getTarget(nextEdge));
+    v1id = he.getTarget(nextEdge);
 
-    add_window_Q(Q, vs, v_b0, v_b1, nextEdge);
+    add_window_Q(e2w, Q, vs, v_b0, v_b1, nextEdge, v0id, v1id);
   }
   // std::cout<<Q.size()<<std::endl;
 }
-
-list<Window> propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
+Vector2d intersect(Vector2d l1, Vector2d l2)
 {
-  list<Window> lw;
+  Vector2d inter;
+  // x coord. of the intersection between l0 and (p0,p2)
+  inter(0) = (l1(1) - l2(1)) / (l1(0) - l2(0));
+  // y coord. of the intersection between l0 and (p0,p2)
+  inter(1) = l2(0) * l1(0) + l2(1);
+  return inter;
+}
+
+void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
+{
+  Window w = *p_w;
+  addColorEdge(viewer, V, w);
 
   // we take the 3 points of our face in 3d representation
 
-  int edgeid_p0p2 = he.getNext(he.getOpposite(w.get_edge_id()));
+  int edgeid_p0p2, edgeid_p2p1, edgeid_p1p0;
+  edgeid_p0p2 = he.getNext(he.getOpposite(w.get_edge_id()));
+  edgeid_p2p1 = w.get_edge_id();
+  edgeid_p1p0 = he.getOpposite(w.get_edge_id());
+
+  int p0id, p1id, p2id;
+  p0id = he.getTarget(edgeid_p1p0);
+  p1id = he.getTarget(edgeid_p2p1);
+  p2id = he.getTarget(edgeid_p0p2);
+
   Vector3d p03d, p13d, p23d;
   p03d = w.get_v0();
   p13d = w.get_v1();
@@ -136,12 +196,6 @@ list<Window> propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
   y_vs1 = delta / 2;
   y_vs2 = -delta / 2;
 
-  // filter different cases
-  if (w.get_b0() < 1e-10)
-  {
-    Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d);
-  }
-
   // we have the two possibles sources, we choosed the one with a positive y
   Vector2d vs;
   if (y_vs1 > 0.)
@@ -159,6 +213,7 @@ list<Window> propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
   Vector2d l0, l1, lb; // two sides of the pencil of lights
   MatrixXd lA = Matrix2d(2, 2);
   lA(0, 0) = w.get_b0();
+
   lA(0, 1) = 1.;
   lA(1, 0) = vs(0);
   lA(1., 1.) = 1.;
@@ -169,29 +224,51 @@ list<Window> propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
   lA(0, 0) = w.get_b1();
   l1 = lA.colPivHouseholderQr().solve(lb); // second line
 
-  Vector2d lp0p2 = Vector2d(p22d(1) / p22d(0), 0.); // line (p0,p2)
+  // filter different cases
+  if (w.get_b0() < 1e-10)
+  {
+    Window pw = Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
+    addColorEdge(viewer, V, pw);
 
-  Vector2d lp1p2; // line (p1,p2)
-  lA(0, 0) = p12d(0);
-  lA(1, 0) = p22d(0);
-  lb(1) = p22d(1);
-  lp1p2 = lA.colPivHouseholderQr().solve(lb);
+    Vector2d lp2p1; // line (p1,p2)
+    lA(0, 0) = p12d(0);
+    lA(1, 0) = p22d(0);
+    lb(1) = p22d(1);
+    lp2p1 = lA.colPivHouseholderQr().solve(lb);
 
-  Vector2d int_l0_lp0p2;
-  // x coord. of the intersection between l0 and (p0,p2)
-  int_l0_lp0p2(0) = (lp0p2(1) - l0(1)) / (lp0p2(0) - l0(0));
-  // y coord. of the intersection between l0 and (p0,p2)
-  int_l0_lp0p2(1) = l0(0) * int_l0_lp0p2(0) + l0(1);
+    Vector2d int_l0_lp2p1 = intersect(lp1p2, l0);
 
-  Vector2d int_l1_lp0p2;
-  // x coord. of the intersection between l1 and (p0,p2)
-  int_l1_lp0p2(0) = (lp0p2(1) - l1(1)) / (lp0p2(0) - l1(0));
-  // y coord. of the intersection between l1 and (p0,p2)
-  int_l1_lp0p2(1) = l1(0) * int_l1_lp0p2(0) + l1(1);
+    pw = Window(0., (p22d - int_l0_lp1p2).norm(), p22d.norm(), int_l0_lp1p2.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p2p1, p13d, p23d, p1id, p2id); // red window on left side (p2,p1)
+    addColorEdge(viewer, V, pw);
 
-  std::cout << "int. l0 and lp0p2: " << int_l0_lp0p2 << std::endl;
-  std::cout << "int. l1 and lp0p2: " << int_l1_lp0p2 << std::endl;
+    Vector2d int_l1_lp2p1
+  }
+  else
+  {
 
+    Vector2d lp0p2 = Vector2d(p22d(1) / p22d(0), 0.); // line (p0,p2)
+
+    Vector2d lp1p2; // line (p1,p2)
+    lA(0, 0) = p12d(0);
+    lA(1, 0) = p22d(0);
+    lb(1) = p22d(1);
+    lp1p2 = lA.colPivHouseholderQr().solve(lb);
+
+    Vector2d int_l0_lp0p2;
+    // x coord. of the intersection between l0 and (p0,p2)
+    int_l0_lp0p2(0) = (lp0p2(1) - l0(1)) / (lp0p2(0) - l0(0));
+    // y coord. of the intersection between l0 and (p0,p2)
+    int_l0_lp0p2(1) = l0(0) * int_l0_lp0p2(0) + l0(1);
+
+    Vector2d int_l1_lp0p2;
+    // x coord. of the intersection between l1 and (p0,p2)
+    int_l1_lp0p2(0) = (lp0p2(1) - l1(1)) / (lp0p2(0) - l1(0));
+    // y coord. of the intersection between l1 and (p0,p2)
+    int_l1_lp0p2(1) = l1(0) * int_l1_lp0p2(0) + l1(1);
+
+    std::cout << "int. l0 and lp0p2: " << int_l0_lp0p2 << std::endl;
+    std::cout << "int. l1 and lp0p2: " << int_l1_lp0p2 << std::endl;
+  }
   //http://math.15873.pagesperso-orange.fr/IntCercl.html
   /* HOW TO PROPAGATE?
 
@@ -217,16 +294,20 @@ list<Window> propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
  * output:
  *    ...: something with all windows computed to apply backtracing?
  */
-void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
+void exact_geodesics(igl::opengl::glfw::Viewer &viewer, HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
 {
 
   // initialize the queue Q with a window for each edge adjacent
   // to source: source_v_t
-  std::queue<Window> Q; // Q.push(..); Q.front(); Q.pop();
-  std::map<int, list<Window> &> e2w;
-  init_Q(he, id_vs, V, Q);
+  std::queue<Window *> Q;              // Q.push(..); Q.front(); Q.pop();
+  std::map<int, list<Window *> *> e2w; // map edge id to windows
 
-  Window cur_w; // current window during iterations
+  init_edgeid2windows(e2w, he);
+  std::cout << "init edgeid2windows(): OK" << std::endl;
+  init_Q(he, id_vs, V, Q, e2w);
+  std::cout << "init init_Q(): OK" << std::endl;
+
+  Window *cur_w; // current window during iterations
 
   while (!Q.empty())
   {
@@ -235,8 +316,8 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     Q.pop();
 
     // propagate selected window
-    propagate_window(V, he, cur_w);
-    return;
+    propagate_window(viewer, V, he, cur_w, Q, e2w);
+    // return;
     // TODO
 
     // update queue with new windows
@@ -265,29 +346,30 @@ void example_1()
   HalfedgeBuilder *builder = new HalfedgeBuilder();
   HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
 
-  exact_geodesics(he, V1, F1, vs);
-
   igl::opengl::glfw::Viewer viewer;
+
+  exact_geodesics(viewer, he, V1, F1, vs);
+  viewer.data().add_points(V1.row(vs), Eigen::RowVector3d(1, 0, 0));
   set_meshes(viewer, V1, F1);
   viewer.launch();
 }
 
-void print_l(list<int> l)
-{
-  for (auto v : l)
-    std::cout << v << ", ";
-  std::cout << std::endl;
-}
+// void print_l(list<int> l)
+// {
+//   for (auto v : l)
+//     std::cout << v << ", ";
+//   std::cout << std::endl;
+// }
 
 int main(int argc, char *argv[])
 {
-  // example_1();
-  std::map<int, list<int> *> l;
-  l[0] = new list<int>();
-  l[1] = l[0];
-  l[0]->push_front(1);
-  std::cout << "l0: ";
-  print_l(*l[0]);
-  std::cout << "l1: ";
-  print_l(*l[1]);
+  example_1();
+  // std::map<int, list<int> *> l;
+  // l[0] = new list<int>();
+  // l[1] = l[0];
+  // l[0]->push_front(1);
+  // std::cout << "l0: ";
+  // print_l(*l[0]);
+  // std::cout << "l1: ";
+  // print_l(*l[1]);
 }
