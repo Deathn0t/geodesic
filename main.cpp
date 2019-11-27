@@ -225,23 +225,70 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
   l1 = lA.colPivHouseholderQr().solve(lb); // second line
 
   // filter different cases
-  if (w.get_b0() < 1e-10)
+  if (w.get_b0() < 1e-10 or w.get_b1() < 1e-10)
   {
-    Window pw = Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
-    addColorEdge(viewer, V, pw);
+    if (w.get_b0() < 1e-10)
+    {
+      Window pw = Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
+      addColorEdge(viewer, V, pw);
 
-    Vector2d lp2p1; // line (p1,p2)
-    lA(0, 0) = p12d(0);
-    lA(1, 0) = p22d(0);
-    lb(1) = p22d(1);
-    lp2p1 = lA.colPivHouseholderQr().solve(lb);
+      Vector2d lp2p1; // line (p1,p2)
+      lA(0, 0) = p12d(0);
+      lA(1, 0) = p22d(0);
+      lb(1) = p22d(1);
+      lp2p1 = lA.colPivHouseholderQr().solve(lb);
 
-    Vector2d int_l0_lp2p1 = intersect(lp1p2, l0);
+      Vector2d int_l0_lp2p1 = intersect(lp2p1, l0);
 
-    pw = Window(0., (p22d - int_l0_lp1p2).norm(), p22d.norm(), int_l0_lp1p2.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p2p1, p13d, p23d, p1id, p2id); // red window on left side (p2,p1)
-    addColorEdge(viewer, V, pw);
+      pw = Window(
+          0.,
+          (p22d - int_l0_lp2p1).norm(),
+          p22d.norm(), int_l0_lp2p1.norm(),
+          w.get_sigma() + w.get_d0(), 0.,
+          edgeid_p2p1, p13d, p23d, p1id, p2id); // red window on left side (p2,p1)
+      addColorEdge(viewer, V, pw);
 
-    Vector2d int_l1_lp2p1
+      Vector2d int_l1_lp2p1 = intersect(lp2p1, l1);
+      pw = Window(
+          (p22d - int_l0_lp2p1).norm(),
+          (p22d - int_l1_lp2p1).norm(),
+          w.get_d0() + int_l0_lp2p1.norm(),
+          w.get_d1() + int_l1_lp2p1.norm(),
+          w.get_sigma(),
+          0.,
+          edgeid_p2p1, p13d, p23d, p1id, p2id); // yellow window on side (p2,p1)
+    }
+    else
+    {                                                                                                                            // w.get_b1() < 1e-10 is true
+      Window pw = Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
+      addColorEdge(viewer, V, pw);
+
+      Vector2d lp2p1; // line (p1,p2)
+      lA(0, 0) = p12d(0);
+      lA(1, 0) = p22d(0);
+      lb(1) = p22d(1);
+      lp2p1 = lA.colPivHouseholderQr().solve(lb);
+
+      Vector2d int_l0_lp2p1 = intersect(lp2p1, l0);
+
+      pw = Window(
+          0.,
+          (p22d - int_l0_lp2p1).norm(),
+          p22d.norm(), int_l0_lp2p1.norm(),
+          w.get_sigma() + w.get_d0(), 0.,
+          edgeid_p2p1, p13d, p23d, p1id, p2id); // red window on left side (p2,p1)
+      addColorEdge(viewer, V, pw);
+
+      Vector2d int_l1_lp2p1 = intersect(lp2p1, l1);
+      pw = Window(
+          (p22d - int_l0_lp2p1).norm(),
+          (p22d - int_l1_lp2p1).norm(),
+          w.get_d0() + int_l0_lp2p1.norm(),
+          w.get_d1() + int_l1_lp2p1.norm(),
+          w.get_sigma(),
+          0.,
+          edgeid_p2p1, p13d, p23d, p1id, p2id); // yellow window on side (p2,p1)
+    }
   }
   else
   {
