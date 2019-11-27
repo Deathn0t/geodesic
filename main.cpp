@@ -28,7 +28,8 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
 
     viewer.data(0).clear(); // Clear should be called before drawing the mesh
     viewer.data(0).set_mesh(V1, F1);
-    viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3)); // update the mesh (both coordinates and faces)
+    viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3));
+     // update the mesh (both coordinates and faces)
   }
 
   return false;
@@ -39,7 +40,23 @@ void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F)
   viewer.callback_key_down = &key_down; // for dealing with keyboard events
   viewer.data().set_mesh(V, F);
   viewer.append_mesh();
-  viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3));
+  viewer.data(0).set_colors(Eigen::RowVector3d(1, 1, 1));
+}
+
+void addColorEdge(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, Window &w)
+{
+     std::cout<<"color edges"<<std::endl;
+     MatrixXi edgeVertices(1,2);
+     edgeVertices(0,0) = w.get_v0id();
+     edgeVertices(0,1) = w.get_v1id();
+
+     MatrixXd edgeVertics(2,3);
+     edgeVertics.row(0) = w.get_v0();
+     edgeVertics.row(1) = w.get_v1();
+     
+     viewer.data(1).add_points(edgeVertics, Eigen::RowVector3d(1, 1, 1));
+     viewer.data(1).set_edges(V1,edgeVertices, Eigen::RowVector3d(1, 1, 1));
+    
 }
 
 void set_pc(igl::opengl::glfw::Viewer &viewer)
@@ -53,7 +70,7 @@ float distance(Vector3d &v1, Vector3d &v2)
   return sqrt(pow(v2(2) - v1(2), 2) + pow(v2(1) - v1(1), 2) + pow(v2(0) - v1(0), 2));
 }
 
-void add_window_Q(std::queue<Window> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id)
+void add_window_Q(std::queue<Window> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
 {
   double b0 = 0.;
   double b1 = distance(v0, v1);
@@ -63,7 +80,8 @@ void add_window_Q(std::queue<Window> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v
 
   double sigma = 0;
   int dir = 0;
-  Q.push(Window(b0, b1, d0, d1, sigma, dir, edge_id, v0, v1));
+
+  Q.push(Window(b0, b1, d0, d1, sigma, dir, edge_id, v0, v1, v0id,v1id));
 }
 
 /**
@@ -84,31 +102,41 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window> &Q)
 
   Vector3d vs, v_init, v_b0, v_b1;
   int incidentEdge, nextEdge;
+  int v0id, v1id;
 
   vs = V.row(id_vs);
   incidentEdge = he.getEdge(id_vs);
   nextEdge = he.getNext(incidentEdge);
   v_init = V.row(he.getTarget(nextEdge));
+  v0id = he.getTarget(nextEdge);
+  
+  
 
   nextEdge = he.getNext(nextEdge);
+  v1id = he.getTarget(nextEdge);
   v_b1 = V.row(he.getTarget(nextEdge));
-  add_window_Q(Q, vs, v_init, v_b1, nextEdge);
+
+  add_window_Q(Q, vs, v_init, v_b1, nextEdge,v0id,v1id);
 
   while (v_init != v_b1)
   {
     v_b0 = v_b1;
-
+    v0id = v1id;
     nextEdge = he.getNext(he.getOpposite(he.getNext(nextEdge)));
     v_b1 = V.row(he.getTarget(nextEdge));
+    v1id = he.getTarget(nextEdge);
 
-    add_window_Q(Q, vs, v_b0, v_b1, nextEdge);
+    add_window_Q(Q, vs, v_b0, v_b1, nextEdge,v0id,v1id);
   }
   // std::cout<<Q.size()<<std::endl;
 }
 
-void propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
+void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS &he, Window &w)
 {
   // On calcule nos angles de rotation entre notre ancien repere et le nouveau
+
+  addColorEdge(viewer,V,w);
+
   Vector3d p03d, p13d, p23d;
   p03d = w.get_v0();
   p13d = w.get_v1();
@@ -189,7 +217,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window &w)
  * output:
  *    ...: something with all windows computed to apply backtracing?
  */
-void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
+void exact_geodesics(igl::opengl::glfw::Viewer &viewer, HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
 {
 
   // initialize the queue Q with a window for each edge adjacent
@@ -204,8 +232,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // select and remove a Window from Q
     cur_w = Q.front();
     Q.pop();
-
-    propagate_window(V, he, cur_w);
+    propagate_window(viewer, V, he, cur_w);
     return;
     // propagate selected window
     // TODO
@@ -236,12 +263,15 @@ void example_1()
   HalfedgeBuilder *builder = new HalfedgeBuilder();
   HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
 
-  exact_geodesics(he, V1, F1, vs);
-
   igl::opengl::glfw::Viewer viewer;
+
+  exact_geodesics(viewer,he, V1, F1, vs);
+  viewer.data().add_points(V1.row(vs), Eigen::RowVector3d(1, 0, 0)); 
   set_meshes(viewer, V1, F1);
   viewer.launch();
 }
+
+
 
 int main(int argc, char *argv[])
 {
