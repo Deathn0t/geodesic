@@ -38,30 +38,43 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
 void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F)
 {
   viewer.callback_key_down = &key_down; // for dealing with keyboard events
-  viewer.data().set_mesh(V, F);
+  viewer.data(0).set_mesh(V, F);
   viewer.append_mesh();
-  viewer.data(0).show_faces = false;
+  // viewer.data(0).show_faces = false;
+  viewer.data(0).show_lines = false;
 }
 
-void addColorEdge(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, Window &w)
+void addColorEdge(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, Window &w, RowVector3d color = RowVector3d(1, 0, 0), bool left = true, bool right = true)
 {
-  std::cout << "color edges" << std::endl;
+  std::cout << "Color("
+            << color(0) << ","
+            << color(1) << ","
+            << color(2) << ") ";
+  w.print();
+  std::cout << std::endl;
+
   MatrixXi edgeVertices(1, 2);
   edgeVertices(0, 0) = w.get_v0id();
   edgeVertices(0, 1) = w.get_v1id();
 
-  float coefb0 = w.get_b0() / (w.get_v0() - w.get_v1()).norm();
-  float coefb1 = w.get_b1() / (w.get_v0() - w.get_v1()).norm();
+  Vector3d normalized = (w.get_v1() - w.get_v0()) / (w.get_v1() - w.get_v0()).norm();
 
-  MatrixXd b0b1(2, 3);
-  b0b1.row(0) = coefb0 * (w.get_v0() + w.get_v1());
-  b0b1.row(1) = coefb1 * (w.get_v0() + w.get_v1());
+  MatrixXd point1(1, 3), point2(1, 3);
+  point1.row(0) = w.get_v0() + w.get_b0() * normalized;
+  point2.row(0) = w.get_v0() + w.get_b1() * normalized;
 
-  viewer.data(1).add_points()
-      viewer.data(1)
-          .add_points(edgeVertices, Eigen::RowVector3d(1, 1, 1));
-  viewer.data(1).add_points(b0b1, Eigen::RowVector3d(1, 0, 0));
-  //viewer.data(1).set_edges(V1, edgeVertices, Eigen::RowVector3d(1, 1, 1));
+  if (left)
+  {
+    viewer.data(0).add_points(point1, color);
+  }
+
+  if (right)
+  {
+
+    viewer.data(0).add_points(point2, color);
+  }
+
+  viewer.data(0).add_edges(point1, point2, color);
 }
 
 void set_pc(igl::opengl::glfw::Viewer &viewer)
@@ -141,20 +154,21 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window *> &Q, std
   }
   // std::cout<<Q.size()<<std::endl;
 }
-Vector2d intersect(Vector2d l1, Vector2d l2)
+
+Vector2d intersect(Vector2d u, Vector2d v)
 {
   Vector2d inter;
-  // x coord. of the intersection between l0 and (p0,p2)
-  inter(0) = (l1(1) - l2(1)) / (l1(0) - l2(0));
-  // y coord. of the intersection between l0 and (p0,p2)
-  inter(1) = l2(0) * l1(0) + l2(1);
+  // x coord. of the intersection between l1 and l2
+  inter(0) = (u(1) - v(1)) / (v(0) - u(0));
+  // y coord. of the intersection between l1 and l2
+  inter(1) = v(0) * inter(0) + v(1);
   return inter;
 }
 
 void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
 {
   Window w = *p_w;
-  addColorEdge(viewer, V, w);
+  // addColorEdge(viewer, V, w);
 
   // we take the 3 points of our face in 3d representation
 
@@ -230,7 +244,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
     if (w.get_b0() < 1e-10)
     {
       Window pw = Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
-      addColorEdge(viewer, V, pw);
+      addColorEdge(viewer, V, pw, RowVector3d(0, 1, 0), false);
 
       Vector2d lp2p1; // line (p1,p2)
       lA(0, 0) = p12d(0);
@@ -245,8 +259,8 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
           (p22d - int_l0_lp2p1).norm(),
           p22d.norm(), int_l0_lp2p1.norm(),
           w.get_sigma() + w.get_d0(), 0.,
-          edgeid_p2p1, p13d, p23d, p1id, p2id); // red window on left side (p2,p1)
-      addColorEdge(viewer, V, pw);
+          edgeid_p2p1, p23d, p13d, p2id, p1id); // red window on left side (p2,p1)
+      addColorEdge(viewer, V, pw, RowVector3d(0, 0, 1), false);
 
       Vector2d int_l1_lp2p1 = intersect(lp2p1, l1);
       pw = Window(
@@ -256,7 +270,8 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
           w.get_d1() + int_l1_lp2p1.norm(),
           w.get_sigma(),
           0.,
-          edgeid_p2p1, p13d, p23d, p1id, p2id); // yellow window on side (p2,p1)
+          edgeid_p2p1, p23d, p13d, p2id, p1id); // yellow window on side (p2,p1)
+      addColorEdge(viewer, V, pw, RowVector3d(0, 1, 1), false);
     }
     else
     {                                                                                                                            // w.get_b1() < 1e-10 is true

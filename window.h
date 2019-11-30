@@ -15,7 +15,7 @@ private:
     int v0id;
     Vector3d v1;
     int v1id;
-    
+
     // direction of s fron the directed edge e
 
 public:
@@ -89,5 +89,14 @@ public:
     double get_d1()
     {
         return d1;
+    }
+
+    void print() {
+        std::cout
+            << "W(b0=" << b0
+            << ", b1=" << b1
+            << ", v0=[" << v0(0) << "," << v0(1) << "," << v0(2) << "]"
+            << ", v1=[" << v1(0) << "," << v1(1) << "," << v1(2) << "]"
+            << ")";
     }
 };
