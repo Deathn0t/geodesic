@@ -11,13 +11,14 @@
 
 #include "HalfedgeBuilder.cpp"
 #include "geoutils.cpp"
-#include "window.h"
+#include "visutils.cpp"
 
 using namespace Eigen;
 using namespace std;
 // to use the classes provided by Eigen library
 MatrixXd V1; // matrix storing vertex coordinates of the input curve
 MatrixXi F1;
+igl::opengl::glfw::Viewer VIEWER;
 
 bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
 {
@@ -44,39 +45,6 @@ void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F)
   viewer.data(0).show_lines = false;
 }
 
-void addColorEdge(igl::opengl::glfw::Viewer &viewer, Window &w, RowVector3d color = RowVector3d(1, 0, 0), bool left = true, bool right = true)
-{
-  std::cout << "Color("
-            << color(0) << ","
-            << color(1) << ","
-            << color(2) << ") ";
-  w.print();
-  std::cout << std::endl;
-
-  MatrixXi edgeVertices(1, 2);
-  edgeVertices(0, 0) = w.get_v0id();
-  edgeVertices(0, 1) = w.get_v1id();
-
-  Vector3d normalized = (w.get_v1() - w.get_v0()) / (w.get_v1() - w.get_v0()).norm();
-
-  MatrixXd point1(1, 3), point2(1, 3);
-  point1.row(0) = w.get_v0() + w.get_b0() * normalized;
-  point2.row(0) = w.get_v0() + w.get_b1() * normalized;
-
-  if (left)
-  {
-    viewer.data(0).add_points(point1, color);
-  }
-
-  if (right)
-  {
-
-    viewer.data(0).add_points(point2, color);
-  }
-
-  viewer.data(0).add_edges(point1, point2, color);
-}
-
 void set_pc(igl::opengl::glfw::Viewer &viewer)
 {
   viewer.callback_key_down = &key_down; // for dealing with keyboard events
@@ -96,6 +64,7 @@ void add_window_Q(std::map<int, list<Window *> *> &e2w, std::queue<Window *> &Q,
 
   Window *newWindow;
   newWindow = new Window(b0, b1, d0, d1, sigma, dir, edge_id, v0, v1, v0id, v1id);
+  addColorEdge(VIEWER, *newWindow, RowVector3d(0, 0, 1));
   Q.push(newWindow);
 
   e2w[edge_id]->push_front(newWindow);
@@ -152,7 +121,6 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window *> &Q, std
 
     add_window_Q(e2w, Q, vs, v_b0, v_b1, nextEdge, v0id, v1id);
   }
-  // std::cout<<Q.size()<<std::endl;
 }
 
 void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
@@ -175,7 +143,7 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
   }
 }
 
-void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
+void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
 {
   Window w = *p_w;
   // addColorEdge(viewer, V, w);
@@ -285,7 +253,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
-        addColorEdge(viewer, *pw, RowVector3d(0, 0, 1));
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
 
         pw = new Window(
             0.,
@@ -295,7 +263,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
-        addColorEdge(viewer, *pw, RowVector3d(0, 0, 1));
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
       }
       else if (point_in_range(int_l0_lp2p1, p22d, p12d))
       {
@@ -307,7 +275,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
-        addColorEdge(viewer, *pw, RowVector3d(0, 0, 1));
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
 
         // p0 becomes the new pseudo source
         pw = new Window(
@@ -318,7 +286,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
             w.get_sigma() + w.get_d0(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
-        addColorEdge(viewer, *pw, RowVector3d(1, 0, 0));
+        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
 
         pw = new Window(
             0.,
@@ -328,7 +296,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
             w.get_sigma() + w.get_d0(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
-        addColorEdge(viewer, *pw, RowVector3d(1, 0, 0));
+        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
       }
       else if (point_in_range(int_l1_lp0p2, p02d, p22d))
       {
@@ -340,7 +308,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
-        addColorEdge(viewer, *pw, RowVector3d(0, 0, 1));
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
 
         // p1 becomes the new pseudo source
         pw = new Window(
@@ -351,7 +319,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
             w.get_sigma() + w.get_d1(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
-        addColorEdge(viewer, *pw, RowVector3d(1, 0, 0));
+        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
 
         pw = new Window(
             0.,
@@ -361,7 +329,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
             w.get_sigma() + w.get_d1(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
-        addColorEdge(viewer, *pw, RowVector3d(1, 0, 0));
+        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
       }
       else // this case should not happen
       {
@@ -446,7 +414,7 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
  * output:
  *    ...: something with all windows computed to apply backtracing?
  */
-void exact_geodesics(igl::opengl::glfw::Viewer &viewer, HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
+void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
 {
 
   // initialize the queue Q with a window for each edge adjacent
@@ -472,7 +440,7 @@ void exact_geodesics(igl::opengl::glfw::Viewer &viewer, HalfedgeDS &he, MatrixXd
     Q.pop();
 
     // propagate selected window
-    propagate_window(viewer, V, he, cur_w, Q, e2w);
+    propagate_window(V, he, cur_w, Q, e2w);
 
     if (it > 25)
       return;
@@ -500,9 +468,9 @@ void example_1()
   HalfedgeBuilder *builder = new HalfedgeBuilder();
   HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
 
-  igl::opengl::glfw::Viewer viewer;
+  igl::opengl::glfw::Viewer &viewer = VIEWER;
 
-  exact_geodesics(viewer, he, V1, F1, vs);
+  exact_geodesics(he, V1, F1, vs);
   viewer.data().add_points(V1.row(vs), Eigen::RowVector3d(1, 0, 0));
   set_meshes(viewer, V1, F1);
   viewer.launch();

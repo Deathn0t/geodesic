@@ -91,7 +91,8 @@ public:
         return d1;
     }
 
-    void print() {
+    void print()
+    {
         std::cout
             << "W(b0=" << b0
             << ", b1=" << b1
