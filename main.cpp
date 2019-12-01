@@ -181,6 +181,12 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
   y_vs1 = delta / 2;
   y_vs2 = -delta / 2;
 
+  cout << "c: " << c << endl;
+  cout << "x0: " << x0 << endl;
+  cout << "x1: " << x1 << endl;
+  cout << "d0: " << d0 << endl;
+  cout << "d1: " << d1 << endl;
+
   // we have the two possibles sources, we choosed the one with a positive y
   Vector2d vs;
   if (y_vs1 > 0.)
@@ -230,7 +236,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
   {
 
     // the window w correspond to the whole edge
-    if (w.get_b0() < 1e-10 && ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10)
+    if (w.get_b0() < 1e-10 && ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10) // case I
     {
 
       // case where the whole face is inside the pencile of light, we create 2 windows
@@ -325,10 +331,10 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
       }
       else //! this case should not happen
       {
-        std::cout << "error 2" << std::endl;
+        std::cout << "error I" << std::endl;
       }
     }
-    else if (w.get_b0() < 1e-10)
+    else if (w.get_b0() < 1e-10) // case II
     {
       if (!point_in_range(int_l0_lp2p1, p22d, p12d) && point_in_range(int_l1_lp2p1, p22d, p12d)) // case II - 1
       {
@@ -402,8 +408,98 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
         std::cout << "error case II" << std::endl;
       }
     }
-    else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10)
+    else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10) // case II SYM
     {
+      if (!point_in_range(int_l1_lp0p2, p02d, p22d) && point_in_range(int_l0_lp0p2, p02d, p22d)) // case II SYM - 1
+      {
+        pw = new Window(
+            0,
+            (p22d - p12d).norm(),
+            (vs - p22d).norm(),
+            w.get_d1(),
+            w.get_sigma(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+
+        pw = new Window(
+            int_l0_lp0p2.norm(),
+            p22d.norm(),
+            (vs - int_l0_lp0p2).norm(),
+            (vs - p22d).norm(),
+            w.get_sigma(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+      }
+      else if (point_in_range(int_l0_lp0p2, p02d, p22d) && point_in_range(int_l1_lp0p2, p02d, p22d)) // case II SYM - 2
+      {
+        pw = new Window(
+            int_l0_lp0p2.norm(),
+            int_l1_lp0p2.norm(),
+            (vs - int_l0_lp0p2).norm(),
+            (vs - int_l1_lp0p2).norm(),
+            w.get_sigma(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+
+        // p1 becomes the new pseudo source
+        pw = new Window(
+            int_l1_lp0p2.norm(),
+            p22d.norm(),
+            (p12d - int_l1_lp0p2).norm(),
+            (p12d - p22d).norm(),
+            w.get_sigma() + w.get_d1(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
+
+        pw = new Window(
+            0.,
+            (p12d - p22d).norm(),
+            (p12d - p22d).norm(),
+            0.,
+            w.get_sigma() + w.get_d1(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
+      }
+      else if (point_in_range(int_l0_lp2p1, p22d, p12d)) // case II SYM- 3
+      {
+        pw = new Window(
+            int_l0_lp2p1.norm(),
+            (p22d - p12d).norm(),
+            (vs - int_l0_lp2p1).norm(),
+            w.get_d1(),
+            w.get_sigma(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+      }
+      else //! this case should not happen
+      {
+        std::cout << "error case II SYM" << std::endl;
+        cout << "int_l1_lp0p2: " << endl
+             << int_l1_lp0p2 << endl;
+        cout << "int_l1_lp2p1: " << endl
+             << int_l1_lp2p1 << endl;
+        cout << "int_l0_lp0p2: " << endl
+             << int_l0_lp0p2 << endl;
+        cout << "int_l0_lp2p1: " << endl
+             << int_l0_lp2p1 << endl;
+        cout << "lp0p2: " << endl
+             << lp0p2 << endl;
+        cout << "lp2p1: " << endl
+             << lp2p1 << endl;
+        cout << "l0: " << endl
+             << l0 << endl;
+        cout << "l1: " << endl
+             << l1 << endl;
+        cout << "vs: " << endl
+             << vs << endl;
+        exit(0);
+      }
     }
     else
     { //! this case should not happen
