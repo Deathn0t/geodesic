@@ -62,8 +62,26 @@ void add_window_Q(std::map<int, list<Window *> *> &e2w, std::queue<Window *> &Q,
   double sigma = 0;
   int dir = 0;
 
+  double x0,x1, c, delta, x, y_s1, y_s2; 
+
+  x = (d1 * d1 - d0 * d0 - x1 * x1 + x0 * x0) / (2 * (x0 - x1));
+  c = x1 * x1 + x * x - 2 * x1 * x - d1 * d1;
+  delta = sqrt(-4 * c);
+  y_s1 = delta / 2;
+  y_s2 = -delta / 2;
+
+  Vector2d s;
+  if (y_s1 > 0.)
+  {
+    s = Vector2d(x, y_s1);
+  }
+  else
+  {
+    s = Vector2d(x, y_s2);
+  }
+
   Window *newWindow;
-  newWindow = new Window(b0, b1, d0, d1, sigma, dir, edge_id, v0, v1, v0id, v1id);
+  newWindow = new Window(b0, b1, d0, d1, s, sigma, dir, edge_id, v0, v1, v0id, v1id);
   addColorEdge(VIEWER, *newWindow, RowVector3d(0, 1, 0));
   Q.push(newWindow);
 
@@ -121,10 +139,74 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
   bool add_in_lw = true;
 
   // TODO: compute intersections with other window of same edges and replace if necessary
+  std::cout<<"For edge id "<<w.get_edge_id()<<", the current windows are:"<<std::endl;
+
   for (Window *curr_w : lw)
   {
-    curr_w->print();
+     std::cout<<"List not empty for window"<<std::endl;
+     curr_w->print();
+     // CHECK IF INTERSECTION: 
+     double alpha,beta,gamma,A,B,C;
+     double intervalMin, intervalMax;
+
+     if (w.get_b1()> curr_w->get_b0())
+     {
+           intervalMin = curr_w->get_b0();
+           intervalMax = w.get_b1();
+         
+           alpha = curr_w->get_s()[0] - w.get_s()[0];
+           beta = curr_w->get_sigma() - w.get_sigma();
+           gamma = curr_w->get_s().norm()*curr_w->get_s().norm() - w.get_s().norm()*w.get_s().norm() - beta*beta;
+           A = alpha*alpha - beta*beta;
+           B = gamma*alpha + 2*curr_w->get_s()[0]*beta*beta;
+           C = (1/4.0)*gamma*gamma - curr_w->get_s().norm()*curr_w->get_s().norm()*beta*beta;
+     }
+     else if (curr_w->get_b1() > w.get_b0())
+     {
+           intervalMin = w.get_b0();
+           intervalMax = curr_w->get_b1();
+
+           alpha = w.get_s()[0] - curr_w->get_s()[0];
+           beta = w.get_sigma() - curr_w->get_sigma();
+           gamma = w.get_s().norm()*w.get_s().norm() -curr_w->get_s().norm()*curr_w->get_s().norm() - beta*beta;
+           A = alpha*alpha - beta*beta;
+           B = gamma*alpha + 2*w.get_s()[0]*beta*beta;
+           C = (1/4.0)*gamma*gamma - w.get_s().norm()*w.get_s().norm()*beta*beta;
+     }
+
+     double px1,px2,px;
+     double delta = B*B - 4*A*C;
+
+     if(delta> 0.0)
+     {
+        px1 = (-B - sqrt(delta))/(2*A);
+        px2 = (-B + sqrt(delta))/(2*A);
+
+        if (px1>= intervalMin && px1>= intervalMax)
+        {
+          px = px1;
+        }
+        else
+        {
+          px = px2;
+        }
+      
+     }
+     else if( delta == 0.0)
+     {
+        px = - B/(2*A);
+     }
+     else 
+     {
+       std::cout<<"NO SOLUTION"<<std::endl;
+     }
+
+     // TO DO, MODIFY WINDOWS TO BE FROM B0 PX AND SECOND WINDOW PX - B1
+      
   }
+
+  std::cout<<"For edge id "<<w.get_edge_id()<<", the new window to be added is :"<<std::endl;
+  w.print();
 
   add_in_lw = add_in_lw && w.get_d0() > 0. && w.get_d1() > 0.;
 
@@ -169,8 +251,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
 
   // Computation vs (pseudo source) for new windows, intersection of 2 circles
   // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
-  double x0,
-      x1, d0, d1, c, delta, x, y_vs1, y_vs2;
+  double x0,x1, d0, d1, c, delta, x, y_s1, y_s2;
   x0 = w.get_b0();
   x1 = w.get_b1();
   d0 = w.get_d0();
@@ -178,18 +259,19 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
   x = (d1 * d1 - d0 * d0 - x1 * x1 + x0 * x0) / (2 * (x0 - x1));
   c = x1 * x1 + x * x - 2 * x1 * x - d1 * d1;
   delta = sqrt(-4 * c);
-  y_vs1 = delta / 2;
-  y_vs2 = -delta / 2;
+  y_s1 = delta / 2;
+  y_s2 = -delta / 2;
 
+  // HERE VS SHOUDL BE CALLED S AND S SHOULD BE STORE IN WINDOW TO ALLOW FOR WINDOWS INTERSECTION.
   // we have the two possibles sources, we choosed the one with a positive y
-  Vector2d vs;
-  if (y_vs1 > 0.)
+  Vector2d s;
+  if (y_s1 > 0.)
   {
-    vs = Vector2d(x, y_vs1);
+    s = Vector2d(x, y_s1);
   }
   else
   {
-    vs = Vector2d(x, y_vs2);
+    s = Vector2d(x, y_s2);
   }
 
   // solve linear system to find both lines
@@ -200,10 +282,10 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
   lA(0, 0) = w.get_b0();
 
   lA(0, 1) = 1.;
-  lA(1, 0) = vs(0);
+  lA(1, 0) = s(0);
   lA(1., 1.) = 1.;
   lb(0) = 0;
-  lb(1) = vs(1);
+  lb(1) = s(1);
   l0 = lA.colPivHouseholderQr().solve(lb); // first line
 
   lA(0, 0) = w.get_b1();
@@ -241,7 +323,8 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             0,
             p22d.norm(),
             w.get_d0(),
-            (vs - p22d).norm(),
+            (s - p22d).norm(),
+            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -250,8 +333,9 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
         pw = new Window(
             0.,
             (p22d - p12d).norm(),
-            (vs - p22d).norm(),
+            (s - p22d).norm(),
             w.get_d1(),
+            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -264,6 +348,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p22d - p12d).norm(),
             w.get_d0() + int_l0_lp2p1.norm(),
             w.get_d1(),
+            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -275,6 +360,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             0.,
             p22d.norm(),
+            s,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -285,6 +371,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (int_l0_lp2p1 - p22d).norm(),
             p22d.norm(),
             int_l0_lp2p1.norm(),
+            s,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -296,7 +383,8 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             0.,
             int_l1_lp0p2.norm(),
             w.get_d0(),
-            (vs - int_l1_lp0p2).norm(),
+            (s - int_l1_lp0p2).norm(),
+            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -308,6 +396,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             (p12d - int_l1_lp0p2).norm(),
             (p12d - p22d).norm(),
+            s,
             w.get_sigma() + w.get_d1(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -318,6 +407,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p12d - p22d).norm(),
             (p12d - p22d).norm(),
             0.,
+            s,
             w.get_sigma() + w.get_d1(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -336,7 +426,8 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             0,
             p22d.norm(),
             w.get_d0(),
-            (vs - p22d).norm(),
+            (s - p22d).norm(),
+            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -345,8 +436,9 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
         pw = new Window(
             0,
             (p22d - int_l1_lp2p1).norm(),
-            (vs - p22d).norm(),
-            (vs - int_l1_lp2p1).norm(),
+            (s - p22d).norm(),
+            (s - int_l1_lp2p1).norm(),
+            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -357,8 +449,9 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
         pw = new Window(
             (p22d - int_l0_lp2p1).norm(),
             (p22d - int_l1_lp2p1).norm(),
-            (vs - int_l0_lp2p1).norm(),
-            (vs - int_l1_lp2p1).norm(),
+            (s - int_l0_lp2p1).norm(),
+            (s - int_l1_lp2p1).norm(),
+            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -370,6 +463,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             0.,
             p22d.norm(),
+            s,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -380,6 +474,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (int_l0_lp2p1 - p22d).norm(),
             p22d.norm(),
             int_l0_lp2p1.norm(),
+            s,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -391,7 +486,8 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             0,
             int_l1_lp0p2.norm(),
             w.get_d0(),
-            (vs - int_l1_lp0p2).norm(),
+            (s - int_l1_lp0p2).norm(),
+            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
