@@ -165,14 +165,49 @@ Vector2d intersect(Vector2d u, Vector2d v)
   return inter;
 }
 
+/**
+ * Check if c is in range [a,b]
+**/
+bool point_in_range(Vector2d c, Vector2d a, Vector2d b)
+{
+  double x0, x1, y0, y1;
+  if (a(0) > b(0))
+  {
+    x0 = b(0);
+    x1 = a(0);
+  }
+  else
+  {
+    x0 = a(0);
+    x1 = b(0);
+  }
+
+  if (a(1) > b(1))
+  {
+    y0 = b(1);
+    y1 = a(1);
+  }
+  else
+  {
+    y0 = a(1);
+    y1 = b(1);
+  }
+
+  return (x0 <= c(0) && c(0) <= x1 && y0 <= c(1) && c(1) <= y1);
+}
+
 void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
 {
   list<Window *> lw = *e2w[w.get_edge_id()];
   bool add_in_lw = true;
+
+  // TODO: compute intersections with other window of same edges and replace if necessary
   for (Window *curr_w : lw)
   {
     curr_w->print();
   }
+
+  add_in_lw = add_in_lw && w.get_d0() > 0. && w.get_d1() > 0.;
 
   if (add_in_lw)
   {
@@ -212,41 +247,6 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
   p02d = Vector2d(0, 0);
   p12d = Vector2d((p13d - p03d).norm(), 0);
   p22d = Vector2d(cos(theta) * (p23d - p03d).norm(), sin(theta) * (p23d - p03d).norm());
-
-  //! debug
-  Vector2d tmpp = p02d;
-  if (isnan(p22d(0)) || isnan(p22d(1)))
-  {
-    tmpp = p22d;
-  }
-  else if (isnan(p12d(0)) || isnan(p12d(1)))
-  {
-    tmpp = p12d;
-  }
-  else if (isnan(p02d(0)) || isnan(p02d(1)))
-  {
-    tmpp = p02d;
-  }
-
-  //!debug
-  if ((isnan(tmpp(0)) || isnan(tmpp(1))))
-  {
-    std::cout << "point(" << p22d(0) << ", " << p22d(1) << ")" << std::endl;
-    std::cout << "u: " << std::endl
-              << u << std::endl;
-    std::cout << "v: " << std::endl
-              << v << std::endl;
-    std::cout << "theta: " << theta << std::endl;
-    std::cout << "p03d: " << std::endl
-              << p03d << std::endl;
-    std::cout << "p13d: " << std::endl
-              << p13d << std::endl;
-    std::cout << "p23d: " << std::endl
-              << p23d << std::endl;
-    std::cout << "edge ids: " << edgeid_p1p0 << ", " << edgeid_p0p2 << ", " << edgeid_p2p1 << std::endl;
-    std::cout << "vertex ids: " << p0id << ", " << p1id << ", " << p2id << std::endl;
-    exit(0);
-  }
 
   // Computation vs (pseudo source) for new windows, intersection of 2 circles
   // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
@@ -290,105 +290,190 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
   lA(0, 0) = w.get_b1();
   l1 = lA.colPivHouseholderQr().solve(lb); // second line
 
+  // line (p0,p2)  and line (p1,p2)
+  Vector2d lp0p2, lp2p1;
+  lp0p2 = Vector2d(p22d(1) / p22d(0), 0.);
+  lA(0, 0) = p12d(0);
+  lA(1, 0) = p22d(0);
+  lb(1) = p22d(1);
+  lp2p1 = lA.colPivHouseholderQr().solve(lb);
+
+  // intersections
+  Vector2d int_l0_lp0p2, int_l0_lp2p1, int_l1_lp0p2, int_l1_lp2p1;
+  int_l0_lp0p2 = intersect(lp0p2, l0);
+  int_l0_lp2p1 = intersect(lp2p1, l0);
+  int_l1_lp0p2 = intersect(lp0p2, l1);
+  int_l1_lp2p1 = intersect(lp2p1, l1);
+
   Window *pw;
   // filter different cases
-  if (w.get_b0() < 1e-10 or w.get_b1() < 1e-10)
+  if (w.get_b0() < 1e-10 || ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10)
   {
-    if (w.get_b0() < 1e-10)
+
+    // the window w correspond to the whole edge
+    if (w.get_b0() < 1e-10 && ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10)
     {
-      pw = new Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
-      push_window(*pw, Q, e2w);
-      addColorEdge(viewer, *pw, RowVector3d(0, 1, 0), false);
 
-      Vector2d lp2p1; // line (p1,p2)
-      lA(0, 0) = p12d(0);
-      lA(1, 0) = p22d(0);
-      lb(1) = p22d(1);
-      lp2p1 = lA.colPivHouseholderQr().solve(lb);
+      // case where the whole face is inside the pencile of light, we create 2 windows
+      if (!point_in_range(int_l0_lp2p1, p22d, p12d) &&
+          !point_in_range(int_l1_lp0p2, p02d, p22d))
+      {
+        pw = new Window(
+            0,
+            p22d.norm(),
+            w.get_d0(),
+            (vs - p22d).norm(),
+            w.get_sigma(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(viewer, *pw, RowVector3d(0, 0, 1));
 
-      Vector2d int_l0_lp2p1 = intersect(lp2p1, l0);
+        pw = new Window(
+            0.,
+            (p22d - p12d).norm(),
+            (vs - p22d).norm(),
+            w.get_d1(),
+            w.get_sigma(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(viewer, *pw, RowVector3d(0, 0, 1));
+      }
+      else if (point_in_range(int_l0_lp2p1, p22d, p12d))
+      {
+        pw = new Window(
+            (int_l0_lp2p1 - p22d).norm(),
+            (p22d - p12d).norm(),
+            w.get_d0() + int_l0_lp2p1.norm(),
+            w.get_d1(),
+            w.get_sigma(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(viewer, *pw, RowVector3d(0, 0, 1));
 
-      pw = new Window(
-          0.,
-          (p22d - int_l0_lp2p1).norm(),
-          p22d.norm(), int_l0_lp2p1.norm(),
-          w.get_sigma() + w.get_d0(), 0.,
-          edgeid_p2p1, p23d, p13d, p2id, p1id); // red window on left side (p2,p1)
-      push_window(*pw, Q, e2w);
-      addColorEdge(viewer, *pw, RowVector3d(0, 0, 1), false);
+        // p0 becomes the new pseudo source
+        pw = new Window(
+            0.,
+            p22d.norm(),
+            0.,
+            p22d.norm(),
+            w.get_sigma() + w.get_d0(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(viewer, *pw, RowVector3d(1, 0, 0));
 
-      Vector2d int_l1_lp2p1 = intersect(lp2p1, l1);
-      pw = new Window(
-          (p22d - int_l0_lp2p1).norm(),
-          (p22d - int_l1_lp2p1).norm(),
-          w.get_d0() + int_l0_lp2p1.norm(),
-          w.get_d1() + int_l1_lp2p1.norm(),
-          w.get_sigma(),
-          0.,
-          edgeid_p2p1, p23d, p13d, p2id, p1id); // yellow window on side (p2,p1)
-      push_window(*pw, Q, e2w);
-      addColorEdge(viewer, *pw, RowVector3d(0, 1, 1), false);
+        pw = new Window(
+            0.,
+            (int_l0_lp2p1 - p22d).norm(),
+            p22d.norm(),
+            int_l0_lp2p1.norm(),
+            w.get_sigma() + w.get_d0(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(viewer, *pw, RowVector3d(1, 0, 0));
+      }
+      else if (point_in_range(int_l1_lp0p2, p02d, p22d))
+      {
+        pw = new Window(
+            0.,
+            int_l1_lp0p2.norm(),
+            w.get_d0(),
+            (vs - int_l1_lp0p2).norm(),
+            w.get_sigma(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(viewer, *pw, RowVector3d(0, 0, 1));
+
+        // p1 becomes the new pseudo source
+        pw = new Window(
+            int_l1_lp0p2.norm(),
+            p22d.norm(),
+            (p12d - int_l1_lp0p2).norm(),
+            (p12d - p22d).norm(),
+            w.get_sigma() + w.get_d1(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(viewer, *pw, RowVector3d(1, 0, 0));
+
+        pw = new Window(
+            0.,
+            (p12d - p22d).norm(),
+            (p12d - p22d).norm(),
+            0.,
+            w.get_sigma() + w.get_d1(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(viewer, *pw, RowVector3d(1, 0, 0));
+      }
+      else // this case should not happen
+      {
+        std::cout << "error" << std::endl;
+      }
     }
-    else // w.get_b1() < 1e-10 is true
-    {
-      pw = new Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
-      push_window(*pw, Q, e2w);
-      addColorEdge(viewer, *pw);
+    // else if (true)
+    // {
+    //   pw = new Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
+    //   push_window(*pw, Q, e2w);
+    //   addColorEdge(viewer, *pw, RowVector3d(0, 1, 0), false);
 
-      Vector2d lp2p1; // line (p1,p2)
-      lA(0, 0) = p12d(0);
-      lA(1, 0) = p22d(0);
-      lb(1) = p22d(1);
-      lp2p1 = lA.colPivHouseholderQr().solve(lb);
+    //   pw = new Window(
+    //       0.,
+    //       (p22d - int_l0_lp2p1).norm(),
+    //       p22d.norm(), int_l0_lp2p1.norm(),
+    //       w.get_sigma() + w.get_d0(), 0.,
+    //       edgeid_p2p1, p23d, p13d, p2id, p1id); // red window on left side (p2,p1)
+    //   push_window(*pw, Q, e2w);
+    //   addColorEdge(viewer, *pw, RowVector3d(0, 0, 1), false);
 
-      Vector2d int_l0_lp2p1 = intersect(lp2p1, l0);
-      pw = new Window(
-          0.,
-          (p22d - int_l0_lp2p1).norm(),
-          p22d.norm(), int_l0_lp2p1.norm(),
-          w.get_sigma() + w.get_d0(), 0.,
-          edgeid_p2p1, p13d, p23d, p1id, p2id); // red window on left side (p2,p1)
-      push_window(*pw, Q, e2w);
-      addColorEdge(viewer, *pw);
+    //   pw = new Window(
+    //       (p22d - int_l0_lp2p1).norm(),
+    //       (p22d - int_l1_lp2p1).norm(),
+    //       w.get_d0() + int_l0_lp2p1.norm(),
+    //       w.get_d1() + int_l1_lp2p1.norm(),
+    //       w.get_sigma(),
+    //       0.,
+    //       edgeid_p2p1, p23d, p13d, p2id, p1id); // yellow window on side (p2,p1)
+    //   push_window(*pw, Q, e2w);
+    //   addColorEdge(viewer, *pw, RowVector3d(0, 1, 1), false);
+    // }
+    // else // ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10
+    // {
+    //   pw = new Window(0., p22d.norm(), 0., p22d.norm(), w.get_sigma() + w.get_d0(), 0., edgeid_p0p2, p03d, p23d, p0id, p2id); // red window on left side (p0,p2)
+    //   push_window(*pw, Q, e2w);
+    //   addColorEdge(viewer, *pw);
 
-      Vector2d int_l1_lp2p1 = intersect(lp2p1, l1);
-      pw = new Window(
-          (p22d - int_l0_lp2p1).norm(),
-          (p22d - int_l1_lp2p1).norm(),
-          w.get_d0() + int_l0_lp2p1.norm(),
-          w.get_d1() + int_l1_lp2p1.norm(),
-          w.get_sigma(),
-          0.,
-          edgeid_p2p1, p13d, p23d, p1id, p2id); // yellow window on side (p2,p1)
-      push_window(*pw, Q, e2w);
-      addColorEdge(viewer, *pw);
-    }
+    //   pw = new Window(
+    //       0.,
+    //       (p22d - int_l0_lp2p1).norm(),
+    //       p22d.norm(), int_l0_lp2p1.norm(),
+    //       w.get_sigma() + w.get_d0(), 0.,
+    //       edgeid_p2p1, p13d, p23d, p1id, p2id); // red window on left side (p2,p1)
+    //   push_window(*pw, Q, e2w);
+    //   addColorEdge(viewer, *pw);
+
+    //   pw = new Window(
+    //       (p22d - int_l0_lp2p1).norm(),
+    //       (p22d - int_l1_lp2p1).norm(),
+    //       w.get_d0() + int_l0_lp2p1.norm(),
+    //       w.get_d1() + int_l1_lp2p1.norm(),
+    //       w.get_sigma(),
+    //       0.,
+    //       edgeid_p2p1, p13d, p23d, p1id, p2id); // yellow window on side (p2,p1)
+    //   push_window(*pw, Q, e2w);
+    //   addColorEdge(viewer, *pw);
+    // }
   }
   else
   {
+    // Vector2d int_l0_lp0p2;
+    // int_l0_lp0p2 = intersect(lp0p2, l0);
 
-    Vector2d lp0p2 = Vector2d(p22d(1) / p22d(0), 0.); // line (p0,p2)
+    // Vector2d int_l1_lp0p2;
+    // int_l1_lp0p2 = intersect(lp0p2, l1);
 
-    Vector2d lp1p2; // line (p1,p2)
-    lA(0, 0) = p12d(0);
-    lA(1, 0) = p22d(0);
-    lb(1) = p22d(1);
-    lp1p2 = lA.colPivHouseholderQr().solve(lb);
+    // // TODO
 
-    std::cout << "++ p12d: " << p12d << std::endl;
-    std::cout << "++ p22d: " << p22d << std::endl;
-    std::cout << "++ lp1p2: " << lp1p2 << std::endl;
-
-    Vector2d int_l0_lp0p2;
-    int_l0_lp0p2 = intersect(lp0p2, l0);
-
-    Vector2d int_l1_lp0p2;
-    int_l1_lp0p2 = intersect(lp0p2, l1);
-
-    // TODO
-
-    std::cout << "int. l0 and lp0p2: " << int_l0_lp0p2 << std::endl;
-    std::cout << "int. l1 and lp0p2: " << int_l1_lp0p2 << std::endl;
+    // std::cout << "int. l0 and lp0p2: " << int_l0_lp0p2 << std::endl;
+    // std::cout << "int. l1 and lp0p2: " << int_l1_lp0p2 << std::endl;
   }
   //http://math.15873.pagesperso-orange.fr/IntCercl.html
   /* HOW TO PROPAGATE?
