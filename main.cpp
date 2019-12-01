@@ -10,7 +10,7 @@
 #include <queue>
 
 #include "HalfedgeBuilder.cpp"
-
+#include "geoutils.cpp"
 #include "window.h"
 
 using namespace Eigen;
@@ -153,47 +153,6 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window *> &Q, std
     add_window_Q(e2w, Q, vs, v_b0, v_b1, nextEdge, v0id, v1id);
   }
   // std::cout<<Q.size()<<std::endl;
-}
-
-Vector2d intersect(Vector2d u, Vector2d v)
-{
-  Vector2d inter;
-  // x coord. of the intersection between l1 and l2
-  inter(0) = (u(1) - v(1)) / (v(0) - u(0));
-  // y coord. of the intersection between l1 and l2
-  inter(1) = v(0) * inter(0) + v(1);
-  return inter;
-}
-
-/**
- * Check if c is in range [a,b]
-**/
-bool point_in_range(Vector2d c, Vector2d a, Vector2d b)
-{
-  double x0, x1, y0, y1;
-  if (a(0) > b(0))
-  {
-    x0 = b(0);
-    x1 = a(0);
-  }
-  else
-  {
-    x0 = a(0);
-    x1 = b(0);
-  }
-
-  if (a(1) > b(1))
-  {
-    y0 = b(1);
-    y1 = a(1);
-  }
-  else
-  {
-    y0 = a(1);
-    y1 = b(1);
-  }
-
-  return (x0 <= c(0) && c(0) <= x1 && y0 <= c(1) && c(1) <= y1);
 }
 
 void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
@@ -476,19 +435,6 @@ void propagate_window(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, HalfedgeDS
     // std::cout << "int. l1 and lp0p2: " << int_l1_lp0p2 << std::endl;
   }
   //http://math.15873.pagesperso-orange.fr/IntCercl.html
-  /* HOW TO PROPAGATE?
-
-    1. Transpose old b0,b1 to new bo,b1 new plane (plane of edge),
-    2. Take vector of d0, d1 from old face and intersect with new edge (vector = x=infiny, y =0)
-    3. From this vectors, find intersections corresponding to new b0,b1.
-    4. From this new b0,b1 find distance d0' , d1'.
-    5. Add d0', d1' to d0  and d1.
-    6. Compute new source using new distances and new b0,b1.
-    7. This give the new window : new b0 to b1), new distances to source d0,d1, edge_id
-
-    */
-
-  // DO PLANE TRANSLATIONr
 }
 
 /**
