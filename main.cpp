@@ -134,51 +134,49 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window *> &Q, std
   }
 }
 
-double computeIntersection (Window &leftWindow, Window &rightWindow)
+double computeIntersection(Window &leftWindow, Window &rightWindow)
 {
-      
-    double intervalMin, intervalMax;
-    intervalMin = rightWindow.get_b0();
-    intervalMax = leftWindow.get_b1();
-     
-     double alpha,beta,gamma,A,B,C;
 
-     alpha = rightWindow.get_s()[0] - leftWindow.get_s()[0];
-     beta = rightWindow.get_sigma() - leftWindow.get_sigma();
-     gamma = rightWindow.get_s().norm()*rightWindow.get_s().norm() - leftWindow.get_s().norm()*leftWindow.get_s().norm() - beta*beta;
-     A = alpha*alpha - beta*beta;
-     B = gamma*alpha + 2*rightWindow.get_s()[0]*beta*beta;
-     C = (1/4.0)*gamma*gamma - rightWindow.get_s().norm()*rightWindow.get_s().norm()*beta*beta;
+  double intervalMin, intervalMax;
+  intervalMin = rightWindow.get_b0();
+  intervalMax = leftWindow.get_b1();
 
-     double px1,px2,px;
-     double delta = B*B - 4*A*C;
+  double alpha, beta, gamma, A, B, C;
 
-     if(delta> 0.0)
+  alpha = rightWindow.get_s()[0] - leftWindow.get_s()[0];
+  beta = rightWindow.get_sigma() - leftWindow.get_sigma();
+  gamma = rightWindow.get_s().norm() * rightWindow.get_s().norm() - leftWindow.get_s().norm() * leftWindow.get_s().norm() - beta * beta;
+  A = alpha * alpha - beta * beta;
+  B = gamma * alpha + 2 * rightWindow.get_s()[0] * beta * beta;
+  C = (1 / 4.0) * gamma * gamma - rightWindow.get_s().norm() * rightWindow.get_s().norm() * beta * beta;
+
+  double px1, px2, px;
+  double delta = B * B - 4 * A * C;
+
+  if (delta > 0.0)
+  {
+    px1 = (-B - sqrt(delta)) / (2 * A);
+    px2 = (-B + sqrt(delta)) / (2 * A);
+
+    if (px1 >= intervalMin && px1 >= intervalMax)
     {
-        px1 = (-B - sqrt(delta))/(2*A);
-        px2 = (-B + sqrt(delta))/(2*A);
-
-        if (px1 >= intervalMin && px1 >= intervalMax)
-        {
-            px = px1;
-        }
-        else
-        {
-            px = px2;
-        }
+      px = px1;
     }
-    else if( delta == 0.0)
+    else
     {
-        px = - B/(2*A);
+      px = px2;
     }
-    else 
-    {
-        std::cout<<"IMPOSSIBLE BUT NO SOLUTION"<<std::endl;
-    }
+  }
+  else if (delta == 0.0)
+  {
+    px = -B / (2 * A);
+  }
+  else
+  {
+    std::cout << "IMPOSSIBLE BUT NO SOLUTION" << std::endl;
+  }
 
-    return px;
-     
-
+  return px;
 }
 
 void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
@@ -189,62 +187,60 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
   // TODO: compute intersections with other window of same edges and replace if necessary
   std::cout << "For edge id " << w.get_edge_id() << ", the current windows are:" << std::endl;
 
-  // CHECK IF INTERSECTION: 
+  // CHECK IF INTERSECTION:
   for (Window *curr_w : lw)
   {
-     std::cout<<"POSSIBLE INTERSECTION"<<std::endl;
-     // curr_w->print();
+    std::cout << "One intersection:" << std::endl;
 
-     // CHECK IF INTERSECTION: 
-     double alpha,beta,gamma,A,B,C;
-     double intervalMin, intervalMax;
-     // 0 => new window, 1=> one window in list
-     int leftWindow;
-     bool intersection = false;
+    curr_w->print();
 
-     double distance_w_d0,distance_w_d1,distance_curr_w_d0,distance_curr_w_d1;
-    
-      distance_w_d0 = w.get_d0() + w.get_sigma();
-      distance_w_d1 = w.get_d1() + w.get_sigma();
-      distance_curr_w_d0 = curr_w->get_d0() + curr_w->get_sigma();
-      distance_curr_w_d1 = curr_w->get_d1() + curr_w->get_sigma();
-  
+    // CHECK IF INTERSECTION:
+    double alpha, beta, gamma, A, B, C;
+    double intervalMin, intervalMax;
+    // 0 => new window, 1=> one window in list
+    int leftWindow;
+    bool intersection = false;
 
-     if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0())
-     {
-           /*      /\    /\
+    double distance_w_d0, distance_w_d1, distance_curr_w_d0, distance_curr_w_d1;
+
+    distance_w_d0 = w.get_d0() + w.get_sigma();
+    distance_w_d1 = w.get_d1() + w.get_sigma();
+    distance_curr_w_d0 = curr_w->get_d0() + curr_w->get_sigma();
+    distance_curr_w_d1 = curr_w->get_d1() + curr_w->get_sigma();
+
+    if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0())
+    {
+      /*           /\    /\
            //     /  \  /  \
            //    / w  \/  c \
            //   /     /\     \
                /     /  \     \  */
-           leftWindow = 0;
-           double px = computeIntersection(w,*curr_w);
-     }
-     else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0())
-     {
-           /*      /\    /\
+      leftWindow = 0;
+      double px = computeIntersection(w, *curr_w);
+    }
+    else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0())
+    {
+      /*           /\    /\
            //     /  \  /  \
            //    / c  \/  w \
            //   /     /\     \
                /     /  \     \  */
-           leftWindow = 1;
-           double px = computeIntersection(*curr_w,w);
-
-     }
-     else if (w.get_b0() > curr_w->get_b0() && w.get_b1() < curr_w->get_b1())
-     {
-            // curr_w totally englobes w
-            /*     /\            /\
+      leftWindow = 1;
+      double px = computeIntersection(*curr_w, w);
+    }
+    else if (w.get_b0() > curr_w->get_b0() && w.get_b1() < curr_w->get_b1())
+    {
+      // curr_w totally englobes w
+      /*           /\            /\
            //     /c \         |/c \
            //    / /\ \        / \  \
            //   / /  \ \      /|  \  \
                / / w  \ \    / | w \  \  */
 
-          double px1 = computeIntersection(*curr_w,w);
-          double px2 = computeIntersection(w,*curr_w);
-          
+      double px1 = computeIntersection(*curr_w, w);
+      double px2 = computeIntersection(w, *curr_w);
 
-           /* Vector2d curr_b0, curr_b1, w_b0, w_b1; 
+      /* Vector2d curr_b0, curr_b1, w_b0, w_b1;
 
             curr_b0 = Vector2d(curr_w->get_b0(),0);
             curr_b1 = Vector2d(curr_w->get_b1(),0);
@@ -256,42 +252,37 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
             distance_curr_b1_to_w_vs = (curr_b1 - w.get_s()).norm() + w.get_sigma();
             distance_w_b0_to_curr_vs = (w_b0 - curr_w->get_s()).norm() + curr_w->get_sigma();
             distance_w_b1_to_curr_vs = (w_b1 - curr_w->get_s()).norm() + curr_w->get_sigma();
-            
+
             double distance_w_b0_to_w_vs, distance_w_b1_to_w_vs, distance_curr_b0_to_curr_vs, distance_curr_b1_to_curr_vs;
             distance_w_b0_to_w_vs = w.get_b0() + w.get_sigma();
             distance_w_b1_to_w_vs = w.get_d1() + w.get_sigma();
             distance_curr_b0_to_curr_vs = curr_w->get_d0() + curr_w->get_sigma();
             distance_curr_b1_to_curr_vs = curr_w->get_d1() + curr_w->get_sigma();
-            
-        
+
+
             // Check if distances curr_w > w, if yes, need to divide in three
             // if do not push w !
-            
+
             if ((distance_curr_b0_to_w_vs > distance_curr_b0_to_curr_vs) && (distance_curr_b1_to_w_vs > distance_curr_b1_to_curr_vs))
             {
-                
+
                 // REMOVE OLD WINDOW AND ADJUST NEW WINDOW TO HAVE CURR_W B0 AND B1
             }
             */
-            
-       
-     }
-     else if (curr_w->get_b0() > w.get_b0() && curr_w->get_b1() < w.get_b1())
-     {
-             // w totally englobes curr_w
-             /*    /\            /\
+    }
+    else if (curr_w->get_b0() > w.get_b0() && curr_w->get_b1() < w.get_b1())
+    {
+      // w totally englobes curr_w
+      /*           /\            /\
            //     /w \         |/w \
            //    / /\ \        / \  \
            //   / /  \ \      /|  \  \
                / / c  \ \    / | c \  \  */
-           
-          
-          
-            // Check if distances w> curr_w, if yes, need to divide in three
-            // if do not replace curr_w !
 
-            
-            /*Vector2d curr_b0, curr_b1, w_b0, w_b1; 
+      // Check if distances w> curr_w, if yes, need to divide in three
+      // if do not replace curr_w !
+
+      /*Vector2d curr_b0, curr_b1, w_b0, w_b1;
 
             curr_b0 = Vector2d(curr_w->get_b0(),0);
             curr_b1 = Vector2d(curr_w->get_b1(),0);
@@ -303,25 +294,22 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
             distance_curr_b1_to_w_vs = (curr_b1 - w.get_s()).norm() + w.get_sigma();
             distance_w_b0_to_curr_vs = (w_b0 - curr_w->get_s()).norm() + curr_w->get_sigma();
             distance_w_b1_to_curr_vs = (w_b1 - curr_w->get_s()).norm() + curr_w->get_sigma();
-            
+
             double distance_w_b0_to_w_vs, distance_w_b1_to_w_vs, distance_curr_b0_to_curr_vs, distance_curr_b1_to_curr_vs;
             distance_w_b0_to_w_vs = w.get_b0() + w.get_sigma();
             distance_w_b1_to_w_vs = w.get_d1() + w.get_sigma();
             distance_curr_b0_to_curr_vs = curr_w->get_d0() + curr_w->get_sigma();
             distance_curr_b1_to_curr_vs = curr_w->get_d1() + curr_w->get_sigma();
             */
-                 
-     }
-     else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
-     {
-         std::cout<<"NO INTERSECTION BETWEEN WINDOWS"<<std::endl;
-     }
-
-
+    }
+    else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
+    {
+      std::cout << "NO INTERSECTION BETWEEN WINDOWS" << std::endl;
+    }
   }
 
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
-  
+
   add_in_lw = add_in_lw && w.get_d0() > 0. && w.get_d1() > 0.;
 
   if (add_in_lw)
@@ -361,7 +349,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
   Vector2d p02d, p12d, p22d;
   p02d = Vector2d(0, 0);
   p12d = Vector2d((p13d - p03d).norm(), 0);
-  p22d = Vector2d(cos(theta) * (p23d - p03d).norm(), sin(theta) * (p23d - p03d).norm());
+  p22d = Vector2d(cos(-theta) * (p23d - p03d).norm(), sin(-theta) * (p23d - p03d).norm());
 
   // Computation vs (pseudo source) for new windows, intersection of 2 circles
   // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
@@ -387,7 +375,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
   {
     s = Vector2d(x, y_s2);
   }
-
   // solve linear system to find both lines
   // a*b0 + b = 0
   // a*vsx + b = vsy
@@ -793,7 +780,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 100)
+    if (it > 500)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       return;

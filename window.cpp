@@ -70,9 +70,9 @@ public:
         return b1;
     }
 
-    double set_b0(double new_bo)
+    double set_b0(double new_b0)
     {
-       b0 = new_b0;
+        b0 = new_b0;
     }
 
     double set_b1(double new_b1)
