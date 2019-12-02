@@ -16,12 +16,12 @@ using namespace std;
 
 void addColorEdge(igl::opengl::glfw::Viewer &viewer, Window &w, RowVector3d color = RowVector3d(1, 0, 0), bool left = true, bool right = true)
 {
-    std::cout << "Color("
-              << color(0) << ","
-              << color(1) << ","
-              << color(2) << ") ";
-    //w.print();
-    std::cout << std::endl;
+    cout << "Color("
+         << color(0) << ","
+         << color(1) << ","
+         << color(2) << ") ";
+    w.print();
+    cout << endl;
 
     MatrixXi edgeVertices(1, 2);
     edgeVertices(0, 0) = w.get_v0id();

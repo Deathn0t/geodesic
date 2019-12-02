@@ -19,6 +19,7 @@ using namespace std;
 MatrixXd V1; // matrix storing vertex coordinates of the input curve
 MatrixXi F1;
 igl::opengl::glfw::Viewer VIEWER;
+const double EPS = 1e-7;
 
 bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
 {
@@ -41,7 +42,7 @@ void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F)
   viewer.callback_key_down = &key_down; // for dealing with keyboard events
   viewer.data(0).set_mesh(V, F);
   viewer.append_mesh();
-  // viewer.data(0).show_faces = false;
+  viewer.data(0).show_faces = false;
   viewer.data(0).show_lines = false;
 }
 
@@ -62,7 +63,7 @@ void add_window_Q(std::map<int, list<Window *> *> &e2w, std::queue<Window *> &Q,
   double sigma = 0;
   int dir = 0;
 
-  double x0,x1, c, delta, x, y_s1, y_s2; 
+  double x0, x1, c, delta, x, y_s1, y_s2;
 
   x = (d1 * d1 - d0 * d0 - x1 * x1 + x0 * x0) / (2 * (x0 - x1));
   c = x1 * x1 + x * x - 2 * x1 * x - d1 * d1;
@@ -186,7 +187,7 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
   bool add_in_lw = true;
 
   // TODO: compute intersections with other window of same edges and replace if necessary
-  std::cout<<"For edge id "<<w.get_edge_id()<<", the current windows are:"<<std::endl;
+  std::cout << "For edge id " << w.get_edge_id() << ", the current windows are:" << std::endl;
 
   // CHECK IF INTERSECTION: 
   for (Window *curr_w : lw)
@@ -333,7 +334,7 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
 void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
 {
   Window w = *p_w;
-  // addColorEdge(viewer, V, w);
+  addColorEdge(VIEWER, w, RowVector3d(1, 0, 1));
 
   // we take the 3 points of our face in 3d representation
 
@@ -364,7 +365,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
 
   // Computation vs (pseudo source) for new windows, intersection of 2 circles
   // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
-  double x0,x1, d0, d1, c, delta, x, y_s1, y_s2;
+  double x0, x1, d0, d1, c, delta, x, y_s1, y_s2;
   x0 = w.get_b0();
   x1 = w.get_b1();
   d0 = w.get_d0();
@@ -374,6 +375,12 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
   delta = sqrt(-4 * c);
   y_s1 = delta / 2;
   y_s2 = -delta / 2;
+
+  cout << "c: " << c << endl;
+  cout << "x0: " << x0 << endl;
+  cout << "x1: " << x1 << endl;
+  cout << "d0: " << d0 << endl;
+  cout << "d1: " << d1 << endl;
 
   // HERE VS SHOUDL BE CALLED S AND S SHOULD BE STORE IN WINDOW TO ALLOW FOR WINDOWS INTERSECTION.
   // we have the two possibles sources, we choosed the one with a positive y
@@ -421,16 +428,16 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
 
   Window *pw;
   // filter different cases
-  if (w.get_b0() < 1e-10 || ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10)
+  if (w.get_b0() < EPS || ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS)
   {
 
     // the window w correspond to the whole edge
-    if (w.get_b0() < 1e-10 && ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10)
+    if (w.get_b0() < EPS && ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS) // case I - 1
     {
 
       // case where the whole face is inside the pencile of light, we create 2 windows
       if (!point_in_range(int_l0_lp2p1, p22d, p12d) &&
-          !point_in_range(int_l1_lp0p2, p02d, p22d))
+          !point_in_range(int_l1_lp0p2, p02d, p22d)) // case I - 1
       {
         pw = new Window(
             0,
@@ -454,12 +461,12 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
         push_window(*pw, Q, e2w);
         addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
       }
-      else if (point_in_range(int_l0_lp2p1, p22d, p12d))
+      else if (point_in_range(int_l0_lp2p1, p22d, p12d)) // case I - 3
       {
         pw = new Window(
             (int_l0_lp2p1 - p22d).norm(),
             (p22d - p12d).norm(),
-            w.get_d0() + int_l0_lp2p1.norm(),
+            (s - int_l0_lp2p1).norm(),
             w.get_d1(),
             s,
             w.get_sigma(),
@@ -473,7 +480,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             0.,
             p22d.norm(),
-            s,
+            p02d,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -484,13 +491,13 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (int_l0_lp2p1 - p22d).norm(),
             p22d.norm(),
             int_l0_lp2p1.norm(),
-            s,
+            p02d,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
         addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
       }
-      else if (point_in_range(int_l1_lp0p2, p02d, p22d))
+      else if (point_in_range(int_l1_lp0p2, p02d, p22d)) // case I - 2
       {
         pw = new Window(
             0.,
@@ -509,29 +516,29 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             (p12d - int_l1_lp0p2).norm(),
             (p12d - p22d).norm(),
-            s,
+            p12d,
             w.get_sigma() + w.get_d1(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
-        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
+        // addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
 
         pw = new Window(
             0.,
             (p12d - p22d).norm(),
             (p12d - p22d).norm(),
             0.,
-            s,
+            p12d,
             w.get_sigma() + w.get_d1(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
-        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
+        // addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
       }
       else //! this case should not happen
       {
-        std::cout << "error 2" << std::endl;
+        std::cout << "error I" << std::endl;
       }
     }
-    else if (w.get_b0() < 1e-10)
+    else if (w.get_b0() < EPS) // case II
     {
       if (!point_in_range(int_l0_lp2p1, p22d, p12d) && point_in_range(int_l1_lp2p1, p22d, p12d)) // case II - 1
       {
@@ -576,7 +583,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             0.,
             p22d.norm(),
-            s,
+            p02d,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -587,7 +594,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (int_l0_lp2p1 - p22d).norm(),
             p22d.norm(),
             int_l0_lp2p1.norm(),
-            s,
+            p02d,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -611,16 +618,147 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
         std::cout << "error case II" << std::endl;
       }
     }
-    else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < 1e-10)
+    else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS) // case II SYM
     {
+      if (!point_in_range(int_l1_lp0p2, p02d, p22d) && point_in_range(int_l0_lp0p2, p02d, p22d)) // case II SYM - 1
+      {
+        pw = new Window(
+            0,
+            (p22d - p12d).norm(),
+            (s - p22d).norm(),
+            w.get_d1(),
+            s,
+            w.get_sigma(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+
+        pw = new Window(
+            int_l0_lp0p2.norm(),
+            p22d.norm(),
+            (s - int_l0_lp0p2).norm(),
+            (s - p22d).norm(),
+            s,
+            w.get_sigma(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+      }
+      else if (point_in_range(int_l0_lp0p2, p02d, p22d) && point_in_range(int_l1_lp0p2, p02d, p22d)) // case II SYM - 2
+      {
+        pw = new Window(
+            int_l0_lp0p2.norm(),
+            int_l1_lp0p2.norm(),
+            (s - int_l0_lp0p2).norm(),
+            (s - int_l1_lp0p2).norm(),
+            s,
+            w.get_sigma(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+
+        // p1 becomes the new pseudo source
+        pw = new Window(
+            int_l1_lp0p2.norm(),
+            p22d.norm(),
+            (p12d - int_l1_lp0p2).norm(),
+            (p12d - p22d).norm(),
+            p12d,
+            w.get_sigma() + w.get_d1(),
+            0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
+
+        pw = new Window(
+            0.,
+            (p12d - p22d).norm(),
+            (p12d - p22d).norm(),
+            0.,
+            p12d,
+            w.get_sigma() + w.get_d1(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(1, 0, 0));
+      }
+      else if (point_in_range(int_l0_lp2p1, p22d, p12d)) // case II SYM - 3
+      {
+        pw = new Window(
+            int_l0_lp2p1.norm(),
+            (p22d - p12d).norm(),
+            (s - int_l0_lp2p1).norm(),
+            w.get_d1(),
+            s,
+            w.get_sigma(),
+            0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+        push_window(*pw, Q, e2w);
+        addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+      }
+      else //! this case should not happen
+      {
+        std::cout << "error case II SYM" << std::endl;
+      }
     }
-    else
-    { //! this case should not happen
-      std::cout << "error 3" << std::endl;
+    else //! this case should not happen
+    {
+      std::cout << "error I - II - II SYM" << std::endl;
     }
   }
-  else
+  else //case IV
   {
+    if (point_in_range(int_l0_lp0p2, p02d, p22d) && point_in_range(int_l1_lp2p1, p22d, p12d)) // case IV - 1
+    {
+      pw = new Window(
+          int_l0_lp0p2.norm(),
+          p22d.norm(),
+          (s - int_l0_lp0p2).norm(),
+          (s - p22d).norm(),
+          s,
+          w.get_sigma(),
+          0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+      push_window(*pw, Q, e2w);
+      addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+
+      pw = new Window(
+          0,
+          (p22d - int_l1_lp2p1).norm(),
+          (s - p22d).norm(),
+          (s - int_l1_lp2p1).norm(),
+          s,
+          w.get_sigma(),
+          0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+      push_window(*pw, Q, e2w);
+      addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+    }
+    else if (point_in_range(int_l0_lp0p2, p02d, p22d) && point_in_range(int_l1_lp0p2, p02d, p22d)) // case IV - 2
+    {
+      pw = new Window(
+          int_l0_lp0p2.norm(),
+          int_l1_lp0p2.norm(),
+          (s - int_l0_lp0p2).norm(),
+          (s - int_l1_lp0p2).norm(),
+          s,
+          w.get_sigma(),
+          0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+      push_window(*pw, Q, e2w);
+      addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+    }
+    else if (point_in_range(int_l0_lp2p1, p22d, p12d) && point_in_range(int_l1_lp2p1, p22d, p12d)) // case IV - 3
+    {
+      pw = new Window(
+          (p22d - int_l0_lp2p1).norm(),
+          (p22d - int_l1_lp2p1).norm(),
+          (s - int_l0_lp2p1).norm(),
+          (s - int_l1_lp2p1).norm(),
+          s,
+          w.get_sigma(),
+          0., edgeid_p2p1, p23d, p13d, p2id, p1id);
+      push_window(*pw, Q, e2w);
+      addColorEdge(VIEWER, *pw, RowVector3d(0, 0, 1));
+    }
+    else //! this case should not happen
+    {
+      std::cout << "error IV" << std::endl;
+    }
   }
 }
 
@@ -661,7 +799,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 1000)
+    if (it > 55)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       return;
