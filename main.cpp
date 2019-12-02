@@ -19,7 +19,7 @@ using namespace std;
 MatrixXd V1; // matrix storing vertex coordinates of the input curve
 MatrixXi F1;
 igl::opengl::glfw::Viewer VIEWER;
-const double EPS = 1e-7;
+// const double EPS = 1e-7;
 
 bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
 {
@@ -624,11 +624,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
     }
     else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS) // case II SYM
     {
-
-      cout << "s: " << endl
-           << s << endl;
-      exit(0);
-
       if (!point_in_range(int_l1_lp0p2, p02d, p22d) && point_in_range(int_l0_lp0p2, p02d, p22d)) // case II SYM - 1
       {
         pw = new Window(
@@ -846,12 +841,33 @@ void example_1(char *file)
   viewer.launch();
 }
 
+void example_2(char *file)
+{
+  cout << "file: " << file << endl;
+  igl::readOFF(file, V1, F1);
+  int vs = 1195;
+  HalfedgeBuilder *builder = new HalfedgeBuilder();
+  HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
+
+  igl::opengl::glfw::Viewer &viewer = VIEWER;
+
+  exact_geodesics(he, V1, F1, vs);
+
+  cout << "vs: " << endl
+       << V1.row(vs) << endl;
+
+  viewer.data()
+      .add_points(V1.row(vs), Eigen::RowVector3d(1, 0, 0));
+  set_meshes(viewer, V1, F1);
+  viewer.launch();
+}
+
 int main(int argc, char *argv[])
 {
   if (argc < 2)
   {
-    char *file = "../data/sphere.off";
-    example_1(file);
+    char *file = "../data/../data/gargoyle_tri.off";
+    example_2(file);
   }
   else
   {
