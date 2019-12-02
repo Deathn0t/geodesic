@@ -20,7 +20,7 @@ void addColorEdge(igl::opengl::glfw::Viewer &viewer, Window &w, RowVector3d colo
               << color(0) << ","
               << color(1) << ","
               << color(2) << ") ";
-    w.print();
+    //w.print();
     std::cout << std::endl;
 
     MatrixXi edgeVertices(1, 2);
