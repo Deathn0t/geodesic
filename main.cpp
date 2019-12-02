@@ -42,7 +42,7 @@ void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F)
   viewer.callback_key_down = &key_down; // for dealing with keyboard events
   viewer.data(0).set_mesh(V, F);
   viewer.append_mesh();
-  viewer.data(0).show_faces = false;
+  viewer.data(0).show_faces = true;
   viewer.data(0).show_lines = false;
 }
 
@@ -261,12 +261,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
   delta = sqrt(-4 * c);
   y_s1 = delta / 2;
   y_s2 = -delta / 2;
-
-  cout << "c: " << c << endl;
-  cout << "x0: " << x0 << endl;
-  cout << "x1: " << x1 << endl;
-  cout << "d0: " << d0 << endl;
-  cout << "d1: " << d1 << endl;
 
   // HERE VS SHOUDL BE CALLED S AND S SHOULD BE STORE IN WINDOW TO ALLOW FOR WINDOWS INTERSECTION.
   // we have the two possibles sources, we choosed the one with a positive y
@@ -685,7 +679,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 55)
+    if (it > 100)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       return;
@@ -707,9 +701,10 @@ void retrieve_path(Vector3d &vs, Vector3d &ve)
   // TODO
 }
 
-void example_1()
+void example_1(char *file)
 {
-  igl::readOFF("../data/sphere.off", V1, F1);
+  cout << "file: " << file << endl;
+  igl::readOFF(file, V1, F1);
   int vs = 0;
   HalfedgeBuilder *builder = new HalfedgeBuilder();
   HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
@@ -724,5 +719,13 @@ void example_1()
 
 int main(int argc, char *argv[])
 {
-  example_1();
+  if (argc < 2)
+  {
+    char *file = "../data/sphere.off";
+    example_1(file);
+  }
+  else
+  {
+    example_1(argv[1]);
+  }
 }
