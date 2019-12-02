@@ -52,6 +52,35 @@ void set_pc(igl::opengl::glfw::Viewer &viewer)
   viewer.data().add_points(V1, Eigen::RowVector3d(0.3, 0.8, 0.3));
 }
 
+Vector2d compute_pseudo_source(Window &w)
+{
+  // Computation vs (pseudo source) for new windows, intersection of 2 circles
+  // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
+  double x0, x1, d0, d1, c, delta, x, y_s1, y_s2;
+  x0 = w.get_b0();
+  x1 = w.get_b1();
+  d0 = w.get_d0();
+  d1 = w.get_d1();
+  x = (d1 * d1 - d0 * d0 - x1 * x1 + x0 * x0) / (2 * (x0 - x1));
+  c = x1 * x1 + x * x - 2 * x1 * x - d1 * d1;
+  delta = sqrt(-4 * c);
+  y_s1 = delta / 2;
+  y_s2 = -delta / 2;
+
+  // HERE VS SHOUDL BE CALLED S AND S SHOULD BE STORE IN WINDOW TO ALLOW FOR WINDOWS INTERSECTION.
+  // we have the two possibles sources, we choosed the one with a positive y
+  Vector2d s;
+  if (y_s1 > 0.)
+  {
+    s = Vector2d(x, y_s1);
+  }
+  else
+  {
+    s = Vector2d(x, y_s2);
+  }
+  return s;
+}
+
 void add_window_Q(std::map<int, list<Window *> *> &e2w, std::queue<Window *> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
 {
   double b0 = 0.;
@@ -142,13 +171,15 @@ double computeIntersection(Window &leftWindow, Window &rightWindow)
   intervalMax = leftWindow.get_b1();
 
   double alpha, beta, gamma, A, B, C;
-
-  alpha = rightWindow.get_s()[0] - leftWindow.get_s()[0];
+  Vector2d s_lw, s_rw;
+  s_lw = compute_pseudo_source(leftWindow);
+  s_rw = compute_pseudo_source(rightWindow);
+  alpha = s_rw[0] - s_lw[0];
   beta = rightWindow.get_sigma() - leftWindow.get_sigma();
-  gamma = rightWindow.get_s().norm() * rightWindow.get_s().norm() - leftWindow.get_s().norm() * leftWindow.get_s().norm() - beta * beta;
+  gamma = s_rw.norm() * s_rw.norm() - s_lw.norm() * s_lw.norm() - beta * beta;
   A = alpha * alpha - beta * beta;
-  B = gamma * alpha + 2 * rightWindow.get_s()[0] * beta * beta;
-  C = (1 / 4.0) * gamma * gamma - rightWindow.get_s().norm() * rightWindow.get_s().norm() * beta * beta;
+  B = gamma * alpha + 2 * s_rw[0] * beta * beta;
+  C = (1 / 4.0) * gamma * gamma - s_rw.norm() * s_rw.norm() * beta * beta;
 
   double px1, px2, px;
   double delta = B * B - 4 * A * C;
@@ -217,6 +248,18 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
                /     /  \     \  */
       leftWindow = 0;
       double px = computeIntersection(w, *curr_w);
+
+      // CREATION NEW WINDOWS
+      Window *new_lw, *new_rw;
+      /*new_lw = new Window(
+          w.get_b0(),
+          px,
+          w.get_d0(),
+          (s - p22).norm(),
+          s,
+          w.get_sigma(),
+          0., edgeid_p0p2, p03d, p23d, p0id, p2id);
+          */
     }
     else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0())
     {
@@ -353,28 +396,8 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
 
   // Computation vs (pseudo source) for new windows, intersection of 2 circles
   // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
-  double x0, x1, d0, d1, c, delta, x, y_s1, y_s2;
-  x0 = w.get_b0();
-  x1 = w.get_b1();
-  d0 = w.get_d0();
-  d1 = w.get_d1();
-  x = (d1 * d1 - d0 * d0 - x1 * x1 + x0 * x0) / (2 * (x0 - x1));
-  c = x1 * x1 + x * x - 2 * x1 * x - d1 * d1;
-  delta = sqrt(-4 * c);
-  y_s1 = delta / 2;
-  y_s2 = -delta / 2;
+  Vector2d s = compute_pseudo_source(w);
 
-  // HERE VS SHOUDL BE CALLED S AND S SHOULD BE STORE IN WINDOW TO ALLOW FOR WINDOWS INTERSECTION.
-  // we have the two possibles sources, we choosed the one with a positive y
-  Vector2d s;
-  if (y_s1 > 0.)
-  {
-    s = Vector2d(x, y_s1);
-  }
-  else
-  {
-    s = Vector2d(x, y_s2);
-  }
   // solve linear system to find both lines
   // a*b0 + b = 0
   // a*vsx + b = vsy
@@ -601,6 +624,11 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
     }
     else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS) // case II SYM
     {
+
+      cout << "s: " << endl
+           << s << endl;
+      exit(0);
+
       if (!point_in_range(int_l1_lp0p2, p02d, p22d) && point_in_range(int_l0_lp0p2, p02d, p22d)) // case II SYM - 1
       {
         pw = new Window(
@@ -780,7 +808,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 500)
+    if (it > 1000)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       return;
