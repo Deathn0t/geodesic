@@ -1,18 +1,7 @@
-#include <igl/opengl/glfw/Viewer.h>
-#include <igl/readOFF.h>
-#include <igl/readPLY.h>
-#include <igl/octree.h>
-#include <igl/knn.h>
-#include <igl/writeOBJ.h>
-#include <igl/edges.h>
-#include <iostream>
-#include <ostream>
-#include <queue>
+#pragma once
 
-// #include "window.cpp"
+#include "geoutils.h"
 
-using namespace Eigen;
-using namespace std;
 
 Vector2d intersect(Vector2d u, Vector2d v)
 {

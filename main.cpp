@@ -8,10 +8,12 @@
 #include <iostream>
 #include <ostream>
 #include <queue>
+#include <tuple>
 
 #include "HalfedgeBuilder.cpp"
-#include "geoutils.cpp"
-#include "visutils.cpp"
+#include "geoutils.h"
+#include "visutils.h"
+#include "window.h"
 
 using namespace Eigen;
 using namespace std;
@@ -163,7 +165,7 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window *> &Q, std
   }
 }
 
-double computeIntersection(Window &leftWindow, Window &rightWindow)
+std::tuple<Vector2d, Vector2d, double>  computeIntersection(Window &leftWindow, Window &rightWindow)
 {
 
   double intervalMin, intervalMax;
@@ -207,7 +209,7 @@ double computeIntersection(Window &leftWindow, Window &rightWindow)
     std::cout << "IMPOSSIBLE BUT NO SOLUTION" << std::endl;
   }
 
-  return px;
+  return std::make_tuple(s_lw,s_rw,px);
 }
 
 void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
@@ -225,19 +227,11 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
 
     curr_w->print();
 
-    // CHECK IF INTERSECTION:
-    double alpha, beta, gamma, A, B, C;
-    double intervalMin, intervalMax;
     // 0 => new window, 1=> one window in list
     int leftWindow;
-    bool intersection = false;
 
-    double distance_w_d0, distance_w_d1, distance_curr_w_d0, distance_curr_w_d1;
-
-    distance_w_d0 = w.get_d0() + w.get_sigma();
-    distance_w_d1 = w.get_d1() + w.get_sigma();
-    distance_curr_w_d0 = curr_w->get_d0() + curr_w->get_sigma();
-    distance_curr_w_d1 = curr_w->get_d1() + curr_w->get_sigma();
+    double px;
+    Vector2d s_lw,s_rw;
 
     if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0())
     {
@@ -247,19 +241,57 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
            //   /     /\     \
                /     /  \     \  */
       leftWindow = 0;
-      double px = computeIntersection(w, *curr_w);
 
-      // CREATION NEW WINDOWS
-      Window *new_lw, *new_rw;
-      /*new_lw = new Window(
-          w.get_b0(),
+      auto intersection_tuple = computeIntersection(w, *curr_w);
+      s_lw = std::get<0>(intersection_tuple);
+      s_rw = std::get<1>(intersection_tuple);
+      px = std::get<2>(intersection_tuple);
+      Vector2d px2d = Vector2d(px,0);
+
+      double w_b0 = w.get_b0();
+      double w_d0 = w.get_d0();
+      double w_sigma = w.get_sigma();
+      int w_edge_id = w.get_edge_id();
+      int w_v0id = w.get_v0id();
+      int w_v1id = w.get_v1id();
+      Vector3d w_v0 = w.get_v0();
+      Vector3d w_v1 = w.get_v1();
+
+      Window *new_lw;
+      
+      new_lw = new Window(
+          w_b0,
           px,
-          w.get_d0(),
-          (s - p22).norm(),
-          s,
-          w.get_sigma(),
-          0., edgeid_p0p2, p03d, p23d, p0id, p2id);
-          */
+          w_d0,
+          (s_lw - px2d).norm(),
+          s_lw,
+          w_sigma,
+          0., w_edge_id, w_v0, w_v1, w_v0id, w_v1id);
+
+      addColorEdge(VIEWER, *new_lw, RowVector3d(0, 0, 1));
+
+      double curr_b1 = curr_w->get_b1();
+      double curr_d1 = curr_w->get_d1();
+      double curr_sigma = curr_w->get_sigma();
+      int curr_edge_id = curr_w->get_edge_id();
+      int curr_v0id = curr_w->get_v0id();
+      int curr_v1id = curr_w->get_v1id();
+      Vector3d curr_v0 = curr_w->get_v0();
+      Vector3d curr_v1 = curr_w->get_v1();
+      
+      Window *new_rw;
+
+      new_rw = new Window(
+          px,
+          curr_b1,
+          (s_rw - px2d).norm(),
+          curr_d1,
+          s_rw,
+          curr_sigma,
+          0., curr_edge_id, curr_v0, curr_v1, curr_v0id, curr_v1id);
+    
+      addColorEdge(VIEWER, *new_rw, RowVector3d(0, 0, 1));
+          
     }
     else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0())
     {
@@ -269,7 +301,57 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
            //   /     /\     \
                /     /  \     \  */
       leftWindow = 1;
-      double px = computeIntersection(*curr_w, w);
+      auto intersection_tuple = computeIntersection(*curr_w, w);
+      s_lw = std::get<0>(intersection_tuple);
+      s_rw = std::get<1>(intersection_tuple);
+      px = std::get<2>(intersection_tuple);
+      Vector2d px2d = Vector2d(px,0);
+
+      double curr_b0 = curr_w->get_b0();
+      double curr_d0 = curr_w->get_d0();
+      double curr_sigma = curr_w->get_sigma();
+      int curr_edge_id = curr_w->get_edge_id();
+      int curr_v0id = curr_w->get_v0id();
+      int curr_v1id = curr_w->get_v1id();
+      Vector3d curr_v0 = curr_w->get_v0();
+      Vector3d curr_v1 = curr_w->get_v1();
+  
+    
+      Window *new_lw;
+      
+      new_lw = new Window(
+          curr_b0,
+          px,
+          curr_d0,
+          (s_lw - px2d).norm(),
+          s_lw,
+          curr_sigma,
+          0., curr_sigma, curr_v0, curr_v1, curr_v0id, curr_v1id);
+
+      addColorEdge(VIEWER, *new_lw, RowVector3d(0, 0, 1));
+
+      double w_b1 = w.get_b1();
+      double w_d1 = w.get_d1();
+      double w_sigma = w.get_sigma();
+      int w_edge_id = w.get_edge_id();
+      int w_v0id = w.get_v0id();
+      int w_v1id = w.get_v1id();
+      Vector3d w_v0 = w.get_v0();
+      Vector3d w_v1 = w.get_v1();
+
+      Window *new_rw;
+      
+      new_rw = new Window(
+          px,
+          w_b1,
+          (s_rw - px2d).norm(),
+          w_d1,
+          s_rw,
+          w_sigma,
+          0., w_edge_id, w_v0, w_v1, w_v0id, w_v1id);
+
+      addColorEdge(VIEWER, *new_rw, RowVector3d(0, 0, 1));
+
     }
     else if (w.get_b0() > curr_w->get_b0() && w.get_b1() < curr_w->get_b1())
     {
@@ -279,39 +361,6 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
            //    / /\ \        / \  \
            //   / /  \ \      /|  \  \
                / / w  \ \    / | w \  \  */
-
-      double px1 = computeIntersection(*curr_w, w);
-      double px2 = computeIntersection(w, *curr_w);
-
-      /* Vector2d curr_b0, curr_b1, w_b0, w_b1;
-
-            curr_b0 = Vector2d(curr_w->get_b0(),0);
-            curr_b1 = Vector2d(curr_w->get_b1(),0);
-            w_b0 = Vector2d(w.get_b0(),0);
-            w_b1 = Vector2d(w.get_b1(),0);
-
-            double distance_curr_b0_to_w_vs, distance_curr_b1_to_w_vs, distance_w_b0_to_curr_vs, distance_w_b1_to_curr_vs;
-            distance_curr_b0_to_w_vs = (curr_b0 - w.get_s()).norm() + w.get_sigma();
-            distance_curr_b1_to_w_vs = (curr_b1 - w.get_s()).norm() + w.get_sigma();
-            distance_w_b0_to_curr_vs = (w_b0 - curr_w->get_s()).norm() + curr_w->get_sigma();
-            distance_w_b1_to_curr_vs = (w_b1 - curr_w->get_s()).norm() + curr_w->get_sigma();
-
-            double distance_w_b0_to_w_vs, distance_w_b1_to_w_vs, distance_curr_b0_to_curr_vs, distance_curr_b1_to_curr_vs;
-            distance_w_b0_to_w_vs = w.get_b0() + w.get_sigma();
-            distance_w_b1_to_w_vs = w.get_d1() + w.get_sigma();
-            distance_curr_b0_to_curr_vs = curr_w->get_d0() + curr_w->get_sigma();
-            distance_curr_b1_to_curr_vs = curr_w->get_d1() + curr_w->get_sigma();
-
-
-            // Check if distances curr_w > w, if yes, need to divide in three
-            // if do not push w !
-
-            if ((distance_curr_b0_to_w_vs > distance_curr_b0_to_curr_vs) && (distance_curr_b1_to_w_vs > distance_curr_b1_to_curr_vs))
-            {
-
-                // REMOVE OLD WINDOW AND ADJUST NEW WINDOW TO HAVE CURR_W B0 AND B1
-            }
-            */
     }
     else if (curr_w->get_b0() > w.get_b0() && curr_w->get_b1() < w.get_b1())
     {
@@ -322,28 +371,6 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
            //   / /  \ \      /|  \  \
                / / c  \ \    / | c \  \  */
 
-      // Check if distances w> curr_w, if yes, need to divide in three
-      // if do not replace curr_w !
-
-      /*Vector2d curr_b0, curr_b1, w_b0, w_b1;
-
-            curr_b0 = Vector2d(curr_w->get_b0(),0);
-            curr_b1 = Vector2d(curr_w->get_b1(),0);
-            w_b0 = Vector2d(w.get_b0(),0);
-            w_b1 = Vector2d(w.get_b1(),0);
-
-            double distance_curr_b0_to_w_vs, distance_curr_b1_to_w_vs, distance_w_b0_to_curr_vs, distance_w_b1_to_curr_vs;
-            distance_curr_b0_to_w_vs = (curr_b0 - w.get_s()).norm() + w.get_sigma();
-            distance_curr_b1_to_w_vs = (curr_b1 - w.get_s()).norm() + w.get_sigma();
-            distance_w_b0_to_curr_vs = (w_b0 - curr_w->get_s()).norm() + curr_w->get_sigma();
-            distance_w_b1_to_curr_vs = (w_b1 - curr_w->get_s()).norm() + curr_w->get_sigma();
-
-            double distance_w_b0_to_w_vs, distance_w_b1_to_w_vs, distance_curr_b0_to_curr_vs, distance_curr_b1_to_curr_vs;
-            distance_w_b0_to_w_vs = w.get_b0() + w.get_sigma();
-            distance_w_b1_to_w_vs = w.get_d1() + w.get_sigma();
-            distance_curr_b0_to_curr_vs = curr_w->get_d0() + curr_w->get_sigma();
-            distance_curr_b1_to_curr_vs = curr_w->get_d1() + curr_w->get_sigma();
-            */
     }
     else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
     {
