@@ -124,11 +124,12 @@ void init_edgeid2windows(std::map<int, list<Window *> *> &e2w, HalfedgeDS &he)
 {
   for (int e_id = 0; e_id < he.sizeOfHalfedges(); e_id++)
   {
-    if (e2w.find(e_id) == e2w.end())
-    {
-      e2w[e_id] = new list<Window *>();
-      e2w[he.getOpposite(e_id)] = e2w[e_id];
-    }
+    e2w[e_id] = new list<Window *>();
+    // if (e2w.find(e_id) == e2w.end())
+    // {
+    //   e2w[e_id] = new list<Window *>();
+    //   e2w[he.getOpposite(e_id)] = e2w[e_id];
+    // }
   }
 }
 /**
@@ -238,6 +239,8 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
       cout << endl;
       curr_w->print();
       cout << endl;
+
+      // colorWindow(VIEWER, w, RowVector3d(0, 0, 1));
 
       /*           /\    /\
            //     /  \  /  \
@@ -772,7 +775,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 10)
+    if (it > 100)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       break;
