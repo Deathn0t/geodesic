@@ -88,6 +88,14 @@ double Window::get_d0()
     return d0;
 }
 
+void Window::set_d0(double f_d0) {
+    d0 = f_d0;
+}
+
+void Window::set_d1(double f_d1) {
+    d1 = f_d1;
+}
+
 double Window::get_d1()
 {
     return d1;

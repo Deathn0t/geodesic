@@ -191,7 +191,7 @@ std::tuple<Vector2d, Vector2d, double>  computeIntersection(Window &leftWindow, 
     px1 = (-B - sqrt(delta)) / (2 * A);
     px2 = (-B + sqrt(delta)) / (2 * A);
 
-    if (px1 >= intervalMin && px1 >= intervalMax)
+    if (intervalMin <= px1 && px1 <= intervalMax)
     {
       px = px1;
     }
@@ -220,11 +220,12 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
   // TODO: compute intersections with other window of same edges and replace if necessary
   std::cout << "For edge id " << w.get_edge_id() << ", the current windows are:" << std::endl;
 
-  // CHECK IF INTERSECTION:
-  for (Window *curr_w : lw)
-  {
-    std::cout << "One intersection:" << std::endl;
+  Window *curr_w;
 
+  // CHECK IF INTERSECTION:
+  for (Window *curr_w : lw) {
+    std::cout << "One intersection:" << std::endl;
+    
     curr_w->print();
 
     // 0 => new window, 1=> one window in list
@@ -248,49 +249,12 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
       px = std::get<2>(intersection_tuple);
       Vector2d px2d = Vector2d(px,0);
 
-      double w_b0 = w.get_b0();
-      double w_d0 = w.get_d0();
-      double w_sigma = w.get_sigma();
-      int w_edge_id = w.get_edge_id();
-      int w_v0id = w.get_v0id();
-      int w_v1id = w.get_v1id();
-      Vector3d w_v0 = w.get_v0();
-      Vector3d w_v1 = w.get_v1();
+      w.set_b1(px);
+      w.set_d1((s_lw - px2d).norm());
 
-      Window *new_lw;
+      curr_w->set_b0(px);
+      curr_w->set_d0((s_rw - px2d).norm());
       
-      new_lw = new Window(
-          w_b0,
-          px,
-          w_d0,
-          (s_lw - px2d).norm(),
-          s_lw,
-          w_sigma,
-          0., w_edge_id, w_v0, w_v1, w_v0id, w_v1id);
-
-      addColorEdge(VIEWER, *new_lw, RowVector3d(0, 0, 1));
-
-      double curr_b1 = curr_w->get_b1();
-      double curr_d1 = curr_w->get_d1();
-      double curr_sigma = curr_w->get_sigma();
-      int curr_edge_id = curr_w->get_edge_id();
-      int curr_v0id = curr_w->get_v0id();
-      int curr_v1id = curr_w->get_v1id();
-      Vector3d curr_v0 = curr_w->get_v0();
-      Vector3d curr_v1 = curr_w->get_v1();
-      
-      Window *new_rw;
-
-      new_rw = new Window(
-          px,
-          curr_b1,
-          (s_rw - px2d).norm(),
-          curr_d1,
-          s_rw,
-          curr_sigma,
-          0., curr_edge_id, curr_v0, curr_v1, curr_v0id, curr_v1id);
-    
-      addColorEdge(VIEWER, *new_rw, RowVector3d(0, 0, 1));
           
     }
     else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0())
@@ -307,50 +271,11 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
       px = std::get<2>(intersection_tuple);
       Vector2d px2d = Vector2d(px,0);
 
-      double curr_b0 = curr_w->get_b0();
-      double curr_d0 = curr_w->get_d0();
-      double curr_sigma = curr_w->get_sigma();
-      int curr_edge_id = curr_w->get_edge_id();
-      int curr_v0id = curr_w->get_v0id();
-      int curr_v1id = curr_w->get_v1id();
-      Vector3d curr_v0 = curr_w->get_v0();
-      Vector3d curr_v1 = curr_w->get_v1();
-  
-    
-      Window *new_lw;
-      
-      new_lw = new Window(
-          curr_b0,
-          px,
-          curr_d0,
-          (s_lw - px2d).norm(),
-          s_lw,
-          curr_sigma,
-          0., curr_sigma, curr_v0, curr_v1, curr_v0id, curr_v1id);
+      curr_w->set_b1(px);
+      curr_w->set_d1((s_lw - px2d).norm());
 
-      addColorEdge(VIEWER, *new_lw, RowVector3d(0, 0, 1));
-
-      double w_b1 = w.get_b1();
-      double w_d1 = w.get_d1();
-      double w_sigma = w.get_sigma();
-      int w_edge_id = w.get_edge_id();
-      int w_v0id = w.get_v0id();
-      int w_v1id = w.get_v1id();
-      Vector3d w_v0 = w.get_v0();
-      Vector3d w_v1 = w.get_v1();
-
-      Window *new_rw;
-      
-      new_rw = new Window(
-          px,
-          w_b1,
-          (s_rw - px2d).norm(),
-          w_d1,
-          s_rw,
-          w_sigma,
-          0., w_edge_id, w_v0, w_v1, w_v0id, w_v1id);
-
-      addColorEdge(VIEWER, *new_rw, RowVector3d(0, 0, 1));
+      w.set_b0(px);
+      w.set_d0((s_rw-px2d).norm());
 
     }
     else if (w.get_b0() > curr_w->get_b0() && w.get_b1() < curr_w->get_b1())
@@ -361,6 +286,7 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
            //    / /\ \        / \  \
            //   / /  \ \      /|  \  \
                / / w  \ \    / | w \  \  */
+          std::cout<<"curr_w totally englobes w"<<std::endl;
     }
     else if (curr_w->get_b0() > w.get_b0() && curr_w->get_b1() < w.get_b1())
     {
@@ -370,6 +296,7 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
            //    / /\ \        / \  \
            //   / /  \ \      /|  \  \
                / / c  \ \    / | c \  \  */
+          std::cout<<"w totally englobes curr_w"<<std::endl;
 
     }
     else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
@@ -381,6 +308,7 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
 
   add_in_lw = add_in_lw && w.get_d0() > 0. && w.get_d1() > 0.;
+  add_in_lw = add_in_lw && abs(w.get_b0()-w.get_b1()) > EPS;
 
   if (add_in_lw)
   {

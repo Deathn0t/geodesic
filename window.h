@@ -54,6 +54,10 @@ public:
 
     double get_d1();
 
+    void set_d0(double f_d0);
+
+    void set_d1(double f_d1);
+
     Vector2d get_s();
 
     void print();
