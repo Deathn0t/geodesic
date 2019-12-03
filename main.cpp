@@ -165,7 +165,7 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window *> &Q, std
   }
 }
 
-std::tuple<Vector2d, Vector2d, double>  computeIntersection(Window &leftWindow, Window &rightWindow)
+std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, Window &rightWindow)
 {
 
   double intervalMin, intervalMax;
@@ -209,33 +209,36 @@ std::tuple<Vector2d, Vector2d, double>  computeIntersection(Window &leftWindow, 
     std::cout << "IMPOSSIBLE BUT NO SOLUTION" << std::endl;
   }
 
-  return std::make_tuple(s_lw,s_rw,px);
+  return std::make_tuple(s_lw, s_rw, px);
 }
 
 void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
 {
-  list<Window *> lw = *e2w[w.get_edge_id()];
+  list<Window *> &lw = *e2w[w.get_edge_id()];
   bool add_in_lw = true;
 
   // TODO: compute intersections with other window of same edges and replace if necessary
-  std::cout << "For edge id " << w.get_edge_id() << ", the current windows are:" << std::endl;
+  std::cout << "For edge id " << w.get_edge_id() << " evaluating conflicts:" << std::endl;
 
   Window *curr_w;
 
   // CHECK IF INTERSECTION:
-  for (Window *curr_w : lw) {
-    std::cout << "One intersection:" << std::endl;
-    
-    curr_w->print();
-
+  for (Window *curr_w : lw)
+  {
     // 0 => new window, 1=> one window in list
     int leftWindow;
 
     double px;
-    Vector2d s_lw,s_rw;
+    Vector2d s_lw, s_rw;
 
-    if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0())
+    if (w.get_b1() >= curr_w->get_b0() && w.get_b0() <= curr_w->get_b0())
     {
+      cout << " /!\\ CONFLIT 1 /!\\: " << endl;
+      w.print();
+      cout << endl;
+      curr_w->print();
+      cout << endl;
+
       /*           /\    /\
            //     /  \  /  \
            //    / w  \/  c \
@@ -247,18 +250,21 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
       s_lw = std::get<0>(intersection_tuple);
       s_rw = std::get<1>(intersection_tuple);
       px = std::get<2>(intersection_tuple);
-      Vector2d px2d = Vector2d(px,0);
+      Vector2d px2d = Vector2d(px, 0);
 
       w.set_b1(px);
       w.set_d1((s_lw - px2d).norm());
 
       curr_w->set_b0(px);
       curr_w->set_d0((s_rw - px2d).norm());
-      
-          
     }
-    else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0())
+    else if (curr_w->get_b1() >= w.get_b0() && curr_w->get_b0() <= w.get_b0())
     {
+      cout << " /!\\ CONFLIT 2 /!\\: " << endl;
+      w.print();
+      cout << endl;
+      curr_w->print();
+      cout << endl;
       /*           /\    /\
            //     /  \  /  \
            //    / c  \/  w \
@@ -269,35 +275,43 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
       s_lw = std::get<0>(intersection_tuple);
       s_rw = std::get<1>(intersection_tuple);
       px = std::get<2>(intersection_tuple);
-      Vector2d px2d = Vector2d(px,0);
+      Vector2d px2d = Vector2d(px, 0);
 
       curr_w->set_b1(px);
       curr_w->set_d1((s_lw - px2d).norm());
 
       w.set_b0(px);
-      w.set_d0((s_rw-px2d).norm());
-
+      w.set_d0((s_rw - px2d).norm());
     }
-    else if (w.get_b0() > curr_w->get_b0() && w.get_b1() < curr_w->get_b1())
+    else if (w.get_b0() >= curr_w->get_b0() && w.get_b1() <= curr_w->get_b1())
     {
+      cout << " /!\\ CONFLIT 3 /!\\: " << endl;
+      w.print();
+      cout << endl;
+      curr_w->print();
+      cout << endl;
       // curr_w totally englobes w
       /*           /\            /\
            //     /c \         |/c \
            //    / /\ \        / \  \
            //   / /  \ \      /|  \  \
                / / w  \ \    / | w \  \  */
-          std::cout<<"curr_w totally englobes w"<<std::endl;
+      std::cout << "curr_w totally englobes w" << std::endl;
     }
-    else if (curr_w->get_b0() > w.get_b0() && curr_w->get_b1() < w.get_b1())
+    else if (curr_w->get_b0() >= w.get_b0() && curr_w->get_b1() <= w.get_b1())
     {
+      cout << " /!\\ CONFLIT 4 /!\\: " << endl;
+      w.print();
+      cout << endl;
+      curr_w->print();
+      cout << endl;
       // w totally englobes curr_w
       /*           /\            /\
            //     /w \         |/w \
            //    / /\ \        / \  \
            //   / /  \ \      /|  \  \
                / / c  \ \    / | c \  \  */
-          std::cout<<"w totally englobes curr_w"<<std::endl;
-
+      std::cout << "w totally englobes curr_w" << std::endl;
     }
     else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
     {
@@ -307,8 +321,8 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
 
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
 
-  add_in_lw = add_in_lw && w.get_d0() > 0. && w.get_d1() > 0.;
-  add_in_lw = add_in_lw && abs(w.get_b0()-w.get_b1()) > EPS;
+  add_in_lw = add_in_lw && 0. < w.get_d0() && 0. < w.get_d1();
+  add_in_lw = add_in_lw && abs(w.get_b0() - w.get_b1()) > EPS;
 
   if (add_in_lw)
   {
@@ -758,10 +772,25 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 1000)
+    if (it > 10)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
-      return;
+      break;
+    }
+  }
+  int acc;
+  for (map<int, list<Window *> *>::iterator it = e2w.begin(); it != e2w.end(); ++it)
+  {
+    acc = 0;
+    for (Window *pw_i : *(it->second))
+    {
+      colorWindow(VIEWER, *pw_i);
+      ++acc;
+    }
+    if (acc > 0)
+    {
+      e2w[it->first] = new list<Window *>();
+      cout << "w_id " << it->first << " has " << acc << " windows" << endl;
     }
   }
 }

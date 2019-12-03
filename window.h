@@ -5,11 +5,9 @@
 using namespace Eigen;
 using namespace std;
 
-
 class Window
 {
 private:
-
     double b0, b1;
     double d0, d1;
     Vector2d s;
@@ -62,4 +60,3 @@ public:
 
     void print();
 };
-

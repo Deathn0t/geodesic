@@ -1,8 +1,5 @@
 #include "window.h"
 
-
-
-
 Window::Window() {}
 
 Window::Window(double f_b0, double f_b1, double f_d0, double f_d1, Vector2d f_s, double f_sigma, int f_dir, int f_edge_id, Vector3d &f_v0, Vector3d &f_v1, int f_v0id, int f_v1id)
@@ -13,7 +10,7 @@ Window::Window(double f_b0, double f_b1, double f_d0, double f_d1, Vector2d f_s,
     }
     else
     {
-         b0 = f_b0;
+        b0 = f_b0;
     }
     b1 = f_b1;
     d0 = f_d0;
@@ -88,11 +85,13 @@ double Window::get_d0()
     return d0;
 }
 
-void Window::set_d0(double f_d0) {
+void Window::set_d0(double f_d0)
+{
     d0 = f_d0;
 }
 
-void Window::set_d1(double f_d1) {
+void Window::set_d1(double f_d1)
+{
     d1 = f_d1;
 }
 
@@ -108,12 +107,13 @@ Vector2d Window::get_s()
 
 void Window::print()
 {
-        cout
-            << "W(b0=" << b0
-            << ", b1=" << b1
-            << ", d0=" << d0
-            << ", d1=" << d1
-            << ", v0=[" << v0(0) << "," << v0(1) << "," << v0(2) << "]"
-            << ", v1=[" << v1(0) << "," << v1(1) << "," << v1(2) << "]"
-            << ")";
+    cout
+        << "W(b0=" << b0
+        << ", b1=" << b1
+        << ", d0=" << d0
+        << ", d1=" << d1
+        << ", sig=" << sigma
+        << ", v0=[" << v0(0) << "," << v0(1) << "," << v0(2) << "]"
+        << ", v1=[" << v1(0) << "," << v1(1) << "," << v1(2) << "]"
+        << ")";
 }
