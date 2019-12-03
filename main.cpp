@@ -853,9 +853,6 @@ void example_2(char *file)
 
   exact_geodesics(he, V1, F1, vs);
 
-  cout << "vs: " << endl
-       << V1.row(vs) << endl;
-
   viewer.data()
       .add_points(V1.row(vs), Eigen::RowVector3d(1, 0, 0));
   set_meshes(viewer, V1, F1);
