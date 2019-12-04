@@ -10,7 +10,7 @@ class Window
 private:
     double b0, b1;
     double d0, d1;
-    Vector2d s;
+    Vector2d *s;
     double sigma; // geodesic distance from s to the source vs
     int dir;
     int edge_id;
@@ -24,7 +24,7 @@ private:
 public:
     Window();
 
-    Window(double f_b0, double f_b1, double f_d0, double f_d1, Vector2d f_s, double f_sigma, int f_dir, int f_edge_id, Vector3d &f_v0, Vector3d &f_v1, int f_v0id, int f_v1id);
+    Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigma, int f_dir, int f_edge_id, Vector3d &f_v0, Vector3d &f_v1, int f_v0id, int f_v1id);
 
     int get_edge_id();
 
@@ -57,6 +57,10 @@ public:
     void set_d1(double f_d1);
 
     Vector2d get_s();
+
+    double min_geodist();
+
+    double max_geodist();
 
     void print();
 };

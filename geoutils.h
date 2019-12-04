@@ -18,6 +18,8 @@ const double EPS = 1e-7;
 
 Vector2d intersect(Vector2d u, Vector2d v);
 
+Vector2d compute_line(Vector2d u, Vector2d v);
+
 /**
  * Check if c is in range [a,b]
 **/

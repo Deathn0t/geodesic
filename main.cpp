@@ -23,6 +23,14 @@ MatrixXi F1;
 igl::opengl::glfw::Viewer VIEWER;
 // const double EPS = 1e-7;
 
+struct GreaterThanByDist
+{
+  bool operator()(Window *w1, Window *w2) const
+  {
+    return w1->get_sigma() > w2->get_sigma();
+  }
+};
+
 bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
 {
   std::cout << "pressed Key: " << key << " " << (unsigned int)key << std::endl;
@@ -54,36 +62,7 @@ void set_pc(igl::opengl::glfw::Viewer &viewer)
   viewer.data().add_points(V1, Eigen::RowVector3d(0.3, 0.8, 0.3));
 }
 
-Vector2d compute_pseudo_source(Window &w)
-{
-  // Computation vs (pseudo source) for new windows, intersection of 2 circles
-  // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
-  double x0, x1, d0, d1, c, delta, x, y_s1, y_s2;
-  x0 = w.get_b0();
-  x1 = w.get_b1();
-  d0 = w.get_d0();
-  d1 = w.get_d1();
-  x = (d1 * d1 - d0 * d0 - x1 * x1 + x0 * x0) / (2 * (x0 - x1));
-  c = x1 * x1 + x * x - 2 * x1 * x - d1 * d1;
-  delta = sqrt(-4 * c);
-  y_s1 = delta / 2;
-  y_s2 = -delta / 2;
-
-  // HERE VS SHOUDL BE CALLED S AND S SHOULD BE STORE IN WINDOW TO ALLOW FOR WINDOWS INTERSECTION.
-  // we have the two possibles sources, we choosed the one with a positive y
-  Vector2d s;
-  if (y_s1 > 0.)
-  {
-    s = Vector2d(x, y_s1);
-  }
-  else
-  {
-    s = Vector2d(x, y_s2);
-  }
-  return s;
-}
-
-void add_window_Q(std::map<int, list<Window *> *> &e2w, std::queue<Window *> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
+void add_window_Q(std::map<int, list<Window *> *> &e2w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
 {
   double b0 = 0.;
   double b1 = (v1 - v0).norm();
@@ -113,7 +92,7 @@ void add_window_Q(std::map<int, list<Window *> *> &e2w, std::queue<Window *> &Q,
   }
 
   Window *newWindow;
-  newWindow = new Window(b0, b1, d0, d1, s, sigma, dir, edge_id, v0, v1, v0id, v1id);
+  newWindow = new Window(b0, b1, d0, d1, sigma, dir, edge_id, v0, v1, v0id, v1id);
   addColorEdge(VIEWER, *newWindow, RowVector3d(0, 1, 0));
   Q.push(newWindow);
 
@@ -135,7 +114,7 @@ void init_edgeid2windows(std::map<int, list<Window *> *> &e2w, HalfedgeDS &he)
 /**
  * Initialize a queue Q with a window for each edge adjacent to source vs.
  */
-void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
+void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, std::map<int, list<Window *> *> &e2w)
 {
 
   Vector3d vs, v_init, v_b0, v_b1;
@@ -175,8 +154,8 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
 
   double alpha, beta, gamma, A, B, C;
   Vector2d s_lw, s_rw;
-  s_lw = compute_pseudo_source(leftWindow);
-  s_rw = compute_pseudo_source(rightWindow);
+  s_lw = leftWindow.get_s();
+  s_rw = rightWindow.get_s();
   alpha = s_rw[0] - s_lw[0];
   beta = rightWindow.get_sigma() - leftWindow.get_sigma();
   gamma = s_rw.norm() * s_rw.norm() - s_lw.norm() * s_lw.norm() - beta * beta;
@@ -213,7 +192,7 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
   return std::make_tuple(s_lw, s_rw, px);
 }
 
-void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
+void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
 {
   list<Window *> &lw = *e2w[w.get_edge_id()];
   bool add_in_lw = true;
@@ -224,103 +203,101 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
   Window *curr_w;
 
   // CHECK IF INTERSECTION:
-  for (Window *curr_w : lw)
-  {
-    // 0 => new window, 1=> one window in list
-    int leftWindow;
+  // for (Window *curr_w : lw)
+  // {
+  //   // 0 => new window, 1=> one window in list
 
-    double px;
-    Vector2d s_lw, s_rw;
+  //   double px;
+  //   Vector2d s_lw, s_rw;
 
-    if (w.get_b1() >= curr_w->get_b0() && w.get_b0() <= curr_w->get_b0())
-    {
-      cout << " /!\\ CONFLIT 1 /!\\: " << endl;
-      w.print();
-      cout << endl;
-      curr_w->print();
-      cout << endl;
+  //   if (w.get_b1() >= curr_w->get_b0() && w.get_b0() <= curr_w->get_b0())
+  //   {
+  //     cout << " /!\\ CONFLIT 1 /!\\: " << endl;
+  //     w.print();
+  //     cout << endl;
+  //     curr_w->print();
+  //     cout << endl;
 
-      // colorWindow(VIEWER, w, RowVector3d(0, 0, 1));
+  //     // colorWindow(VIEWER, w, RowVector3d(0, 0, 1));
 
-      /*           /\    /\
-           //     /  \  /  \
-           //    / w  \/  c \
-           //   /     /\     \
-               /     /  \     \  */
-      leftWindow = 0;
+  //     /*           /\    /\
+  //          //     /  \  /  \
+  //          //    / w  \/  c \
+  //          //   /     /\     \
+  //              /     /  \     \  */
 
-      auto intersection_tuple = computeIntersection(w, *curr_w);
-      s_lw = std::get<0>(intersection_tuple);
-      s_rw = std::get<1>(intersection_tuple);
-      px = std::get<2>(intersection_tuple);
-      Vector2d px2d = Vector2d(px, 0);
+  //     auto intersection_tuple = computeIntersection(w, *curr_w);
+  //     s_lw = std::get<0>(intersection_tuple);
+  //     s_rw = std::get<1>(intersection_tuple);
+  //     px = std::get<2>(intersection_tuple);
+  //     Vector2d px2d = Vector2d(px, 0);
 
-      w.set_b1(px);
-      w.set_d1((s_lw - px2d).norm());
+  //     w.set_b1(px);
+  //     w.set_d1((s_lw - px2d).norm());
 
-      curr_w->set_b0(px);
-      curr_w->set_d0((s_rw - px2d).norm());
-    }
-    else if (curr_w->get_b1() >= w.get_b0() && curr_w->get_b0() <= w.get_b0())
-    {
-      cout << " /!\\ CONFLIT 2 /!\\: " << endl;
-      w.print();
-      cout << endl;
-      curr_w->print();
-      cout << endl;
-      /*           /\    /\
-           //     /  \  /  \
-           //    / c  \/  w \
-           //   /     /\     \
-               /     /  \     \  */
-      leftWindow = 1;
-      auto intersection_tuple = computeIntersection(*curr_w, w);
-      s_lw = std::get<0>(intersection_tuple);
-      s_rw = std::get<1>(intersection_tuple);
-      px = std::get<2>(intersection_tuple);
-      Vector2d px2d = Vector2d(px, 0);
+  //     curr_w->set_b0(px);
+  //     curr_w->set_d0((s_rw - px2d).norm());
+  //   }
+  //   else if (curr_w->get_b1() >= w.get_b0() && curr_w->get_b0() <= w.get_b0())
+  //   {
+  //     cout << " /!\\ CONFLIT 2 /!\\: " << endl;
+  //     w.print();
+  //     cout << endl;
+  //     curr_w->print();
+  //     cout << endl;
+  //     /*           /\    /\
+  //          //     /  \  /  \
+  //          //    / c  \/  w \
+  //          //   /     /\     \
+  //              /     /  \     \  */
 
-      curr_w->set_b1(px);
-      curr_w->set_d1((s_lw - px2d).norm());
+  //     auto intersection_tuple = computeIntersection(*curr_w, w);
+  //     s_lw = std::get<0>(intersection_tuple);
+  //     s_rw = std::get<1>(intersection_tuple);
+  //     px = std::get<2>(intersection_tuple);
+  //     Vector2d px2d = Vector2d(px, 0);
 
-      w.set_b0(px);
-      w.set_d0((s_rw - px2d).norm());
-    }
-    else if (w.get_b0() >= curr_w->get_b0() && w.get_b1() <= curr_w->get_b1())
-    {
-      cout << " /!\\ CONFLIT 3 /!\\: " << endl;
-      w.print();
-      cout << endl;
-      curr_w->print();
-      cout << endl;
-      // curr_w totally englobes w
-      /*           /\            /\
-           //     /c \         |/c \
-           //    / /\ \        / \  \
-           //   / /  \ \      /|  \  \
-               / / w  \ \    / | w \  \  */
-      std::cout << "curr_w totally englobes w" << std::endl;
-    }
-    else if (curr_w->get_b0() >= w.get_b0() && curr_w->get_b1() <= w.get_b1())
-    {
-      cout << " /!\\ CONFLIT 4 /!\\: " << endl;
-      w.print();
-      cout << endl;
-      curr_w->print();
-      cout << endl;
-      // w totally englobes curr_w
-      /*           /\            /\
-           //     /w \         |/w \
-           //    / /\ \        / \  \
-           //   / /  \ \      /|  \  \
-               / / c  \ \    / | c \  \  */
-      std::cout << "w totally englobes curr_w" << std::endl;
-    }
-    else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
-    {
-      std::cout << "NO INTERSECTION BETWEEN WINDOWS" << std::endl;
-    }
-  }
+  //     curr_w->set_b1(px);
+  //     curr_w->set_d1((s_lw - px2d).norm());
+
+  //     w.set_b0(px);
+  //     w.set_d0((s_rw - px2d).norm());
+  //   }
+  //   else if (w.get_b0() >= curr_w->get_b0() && w.get_b1() <= curr_w->get_b1())
+  //   {
+  //     cout << " /!\\ CONFLIT 3 /!\\: " << endl;
+  //     w.print();
+  //     cout << endl;
+  //     curr_w->print();
+  //     cout << endl;
+  //     // curr_w totally englobes w
+  //     /*           /\            /\
+  //          //     /c \         |/c \
+  //          //    / /\ \        / \  \
+  //          //   / /  \ \      /|  \  \
+  //              / / w  \ \    / | w \  \  */
+  //     std::cout << "curr_w totally englobes w" << std::endl;
+  //   }
+  //   else if (curr_w->get_b0() >= w.get_b0() && curr_w->get_b1() <= w.get_b1())
+  //   {
+  //     cout << " /!\\ CONFLIT 4 /!\\: " << endl;
+  //     w.print();
+  //     cout << endl;
+  //     curr_w->print();
+  //     cout << endl;
+  //     // w totally englobes curr_w
+  //     /*           /\            /\
+  //          //     /w \         |/w \
+  //          //    / /\ \        / \  \
+  //          //   / /  \ \      /|  \  \
+  //              / / c  \ \    / | c \  \  */
+  //     std::cout << "w totally englobes curr_w" << std::endl;
+  //   }
+  //   else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
+  //   {
+  //     std::cout << "NO INTERSECTION BETWEEN WINDOWS" << std::endl;
+  //   }
+  // }
 
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
 
@@ -334,7 +311,7 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
   }
 }
 
-void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Window *> &Q, std::map<int, list<Window *> *> &e2w)
+void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
 {
   Window w = *p_w;
   addColorEdge(VIEWER, w, RowVector3d(1, 0, 1));
@@ -368,32 +345,35 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
 
   // Computation vs (pseudo source) for new windows, intersection of 2 circles
   // the center of these two circles have the same y coord. for their center, thouse it simplify the resolution
-  Vector2d s = compute_pseudo_source(w);
+  Vector2d s = w.get_s();
 
   // solve linear system to find both lines
   // a*b0 + b = 0
   // a*vsx + b = vsy
   Vector2d l0, l1, lb; // two sides of the pencil of lights
-  MatrixXd lA = Matrix2d(2, 2);
-  lA(0, 0) = w.get_b0();
+  // MatrixXd lA = Matrix2d(2, 2);
+  // lA(0, 0) = w.get_b0();
 
-  lA(0, 1) = 1.;
-  lA(1, 0) = s(0);
-  lA(1., 1.) = 1.;
-  lb(0) = 0;
-  lb(1) = s(1);
-  l0 = lA.colPivHouseholderQr().solve(lb); // first line
+  // lA(0, 1) = 1.;
+  // lA(1, 0) = s(0);
+  // lA(1., 1.) = 1.;
+  // lb(0) = 0;
+  // lb(1) = s(1);
+  // l0 = lA.colPivHouseholderQr().solve(lb); // first line
+  l0 = compute_line(Vector2d(w.get_b0(), 0), s);
 
-  lA(0, 0) = w.get_b1();
-  l1 = lA.colPivHouseholderQr().solve(lb); // second line
+  // lA(0, 0) = w.get_b1();
+  // l1 = lA.colPivHouseholderQr().solve(lb); // second line
+  l1 = compute_line(Vector2d(w.get_b1(), 0), s);
 
   // line (p0,p2)  and line (p1,p2)
   Vector2d lp0p2, lp2p1;
   lp0p2 = Vector2d(p22d(1) / p22d(0), 0.);
-  lA(0, 0) = p12d(0);
-  lA(1, 0) = p22d(0);
-  lb(1) = p22d(1);
-  lp2p1 = lA.colPivHouseholderQr().solve(lb);
+  // lA(0, 0) = p12d(0);
+  // lA(1, 0) = p22d(0);
+  // lb(1) = p22d(1);
+  // lp2p1 = lA.colPivHouseholderQr().solve(lb);
+  lp2p1 = compute_line(p22d, p12d);
 
   // intersections
   Vector2d int_l0_lp0p2, int_l0_lp2p1, int_l1_lp0p2, int_l1_lp2p1;
@@ -420,7 +400,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             w.get_d0(),
             (s - p22d).norm(),
-            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -431,7 +410,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p22d - p12d).norm(),
             (s - p22d).norm(),
             w.get_d1(),
-            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -444,7 +422,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p22d - p12d).norm(),
             (s - int_l0_lp2p1).norm(),
             w.get_d1(),
-            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -456,7 +433,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             0.,
             p22d.norm(),
-            p02d,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -467,7 +443,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (int_l0_lp2p1 - p22d).norm(),
             p22d.norm(),
             int_l0_lp2p1.norm(),
-            p02d,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -480,7 +455,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             int_l1_lp0p2.norm(),
             w.get_d0(),
             (s - int_l1_lp0p2).norm(),
-            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -492,7 +466,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             (p12d - int_l1_lp0p2).norm(),
             (p12d - p22d).norm(),
-            p12d,
             w.get_sigma() + w.get_d1(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -503,7 +476,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p12d - p22d).norm(),
             (p12d - p22d).norm(),
             0.,
-            p12d,
             w.get_sigma() + w.get_d1(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -512,6 +484,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
       else //! this case should not happen
       {
         std::cout << "error I" << std::endl;
+        exit(0);
       }
     }
     else if (w.get_b0() < EPS) // case II
@@ -523,7 +496,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             w.get_d0(),
             (s - p22d).norm(),
-            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -534,7 +506,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p22d - int_l1_lp2p1).norm(),
             (s - p22d).norm(),
             (s - int_l1_lp2p1).norm(),
-            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -547,7 +518,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p22d - int_l1_lp2p1).norm(),
             (s - int_l0_lp2p1).norm(),
             (s - int_l1_lp2p1).norm(),
-            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -559,7 +529,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             0.,
             p22d.norm(),
-            p02d,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -570,7 +539,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (int_l0_lp2p1 - p22d).norm(),
             p22d.norm(),
             int_l0_lp2p1.norm(),
-            p02d,
             w.get_sigma() + w.get_d0(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -583,7 +551,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             int_l1_lp0p2.norm(),
             w.get_d0(),
             (s - int_l1_lp0p2).norm(),
-            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -592,6 +559,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
       else //! this case should not happen
       {
         std::cout << "error case II" << std::endl;
+        exit(0);
       }
     }
     else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS) // case II SYM
@@ -603,7 +571,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p22d - p12d).norm(),
             (s - p22d).norm(),
             w.get_d1(),
-            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -614,7 +581,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             (s - int_l0_lp0p2).norm(),
             (s - p22d).norm(),
-            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -627,7 +593,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             int_l1_lp0p2.norm(),
             (s - int_l0_lp0p2).norm(),
             (s - int_l1_lp0p2).norm(),
-            s,
             w.get_sigma(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -639,7 +604,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             p22d.norm(),
             (p12d - int_l1_lp0p2).norm(),
             (p12d - p22d).norm(),
-            p12d,
             w.get_sigma() + w.get_d1(),
             0., edgeid_p0p2, p03d, p23d, p0id, p2id);
         push_window(*pw, Q, e2w);
@@ -650,7 +614,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p12d - p22d).norm(),
             (p12d - p22d).norm(),
             0.,
-            p12d,
             w.get_sigma() + w.get_d1(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -663,7 +626,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
             (p22d - p12d).norm(),
             (s - int_l0_lp2p1).norm(),
             w.get_d1(),
-            s,
             w.get_sigma(),
             0., edgeid_p2p1, p23d, p13d, p2id, p1id);
         push_window(*pw, Q, e2w);
@@ -672,11 +634,13 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
       else //! this case should not happen
       {
         std::cout << "error case II SYM" << std::endl;
+        exit(0);
       }
     }
     else //! this case should not happen
     {
       std::cout << "error I - II - II SYM" << std::endl;
+      exit(0);
     }
   }
   else //case IV
@@ -688,7 +652,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
           p22d.norm(),
           (s - int_l0_lp0p2).norm(),
           (s - p22d).norm(),
-          s,
           w.get_sigma(),
           0., edgeid_p0p2, p03d, p23d, p0id, p2id);
       push_window(*pw, Q, e2w);
@@ -699,7 +662,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
           (p22d - int_l1_lp2p1).norm(),
           (s - p22d).norm(),
           (s - int_l1_lp2p1).norm(),
-          s,
           w.get_sigma(),
           0., edgeid_p2p1, p23d, p13d, p2id, p1id);
       push_window(*pw, Q, e2w);
@@ -712,7 +674,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
           int_l1_lp0p2.norm(),
           (s - int_l0_lp0p2).norm(),
           (s - int_l1_lp0p2).norm(),
-          s,
           w.get_sigma(),
           0., edgeid_p0p2, p03d, p23d, p0id, p2id);
       push_window(*pw, Q, e2w);
@@ -725,7 +686,6 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, std::queue<Windo
           (p22d - int_l1_lp2p1).norm(),
           (s - int_l0_lp2p1).norm(),
           (s - int_l1_lp2p1).norm(),
-          s,
           w.get_sigma(),
           0., edgeid_p2p1, p23d, p13d, p2id, p1id);
       push_window(*pw, Q, e2w);
@@ -752,13 +712,16 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
 
   // initialize the queue Q with a window for each edge adjacent
   // to source: source_v_t
-  std::queue<Window *> Q;              // Q.push(..); Q.front(); Q.pop();
-  std::map<int, list<Window *> *> e2w; // map edge id to windows
+  // std::queue<Window *> Q; // Q.push(..); Q.top(); Q.pop();
+  // auto cmp = [](Window *l, Window *r) { return l->get_sigma() < r->get_sigma(); };
+  // priority_queue<Window *, vector<Window *>, decltype(greaterw)> Q(greaterw);
+  priority_queue<Window *, vector<Window *>, GreaterThanByDist> Q;
+  map<int, list<Window *> *> e2w; // map edge id to windows
 
   init_edgeid2windows(e2w, he);
-  std::cout << "init edgeid2windows(): OK" << std::endl;
+  cout << "init edgeid2windows(): OK" << endl;
   init_Q(he, id_vs, V, Q, e2w);
-  std::cout << "init init_Q(): OK" << std::endl;
+  cout << "init init_Q(): OK" << endl;
 
   Window *cur_w; // current window during iterations
 
@@ -769,7 +732,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     it++;
 
     // select and remove a Window from Q
-    cur_w = Q.front();
+    cur_w = Q.top();
     Q.pop();
 
     // propagate selected window
@@ -858,3 +821,8 @@ int main(int argc, char *argv[])
     example_1(argv[1]);
   }
 }
+
+// int main(int argc, char *argv[])
+// {
+//   priority_queue<Window *, vector<Window *>, GreaterThanByDist> Q;
+// }

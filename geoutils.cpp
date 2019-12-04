@@ -2,9 +2,6 @@
 
 #include "geoutils.h"
 
-
-// const double EPS = 1e-7;
-
 Vector2d intersect(Vector2d u, Vector2d v)
 {
     Vector2d inter;
@@ -12,9 +9,18 @@ Vector2d intersect(Vector2d u, Vector2d v)
     inter(0) = (u(1) - v(1)) / (v(0) - u(0));
     // y coord. of the intersection between l1 and l2
     inter(1) = v(0) * inter(0) + v(1);
+
+    cout << (u(0) * inter(0) + u(1)) << " " << (v(0) * inter(0) + v(1)) << " " << inter(1) << endl;
     return inter;
 }
 
+Vector2d compute_line(Vector2d u, Vector2d v)
+{
+    Vector2d l;
+    l(0) = (u(1) - v(1)) / (u(0) - v(0));
+    l(1) = u(1) - l(0);
+    return l;
+}
 /**
  * Check if c is in range [a,b]
 **/
