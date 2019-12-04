@@ -175,22 +175,37 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
 
   double alpha, beta, gamma, A, B, C;
   Vector2d s_lw, s_rw;
+
   s_lw = compute_pseudo_source(leftWindow);
   s_rw = compute_pseudo_source(rightWindow);
+
+  //std::cout<<"s_lw"<<s_lw<<"s_rw"<<s_rw<<std::endl;
+  
   alpha = s_rw[0] - s_lw[0];
   beta = rightWindow.get_sigma() - leftWindow.get_sigma();
-  gamma = s_rw.norm() * s_rw.norm() - s_lw.norm() * s_lw.norm() - beta * beta;
-  A = alpha * alpha - beta * beta;
-  B = gamma * alpha + 2 * s_rw[0] * beta * beta;
-  C = (1 / 4.0) * gamma * gamma - s_rw.norm() * s_rw.norm() * beta * beta;
+  gamma = (s_lw.norm() * s_lw.norm()) - (s_rw.norm() * s_rw.norm()) - (beta * beta);
+  A = (alpha * alpha) - (beta * beta);
+  B = (gamma * alpha) + (2 * s_rw[0] * beta * beta);
+  C = (1.0 / 4.0) * (gamma * gamma) - (s_rw.norm() * s_rw.norm() * beta * beta);
 
   double px1, px2, px;
-  double delta = B * B - 4 * A * C;
+  double delta = (B * B) - (4 * A * C);
 
-  if (delta > 0.0)
+  px1 = (-B - sqrt(delta)) / (2 * A);
+  px2 = (-B + sqrt(delta)) / (2 * A);
+  px = -B / (2 * A);
+  
+  std::cout<<px1<<"-"<<px2<<"-"<<px<<std::endl;
+  std::cout<<s_lw<<"-"<<s_rw<<std::endl;
+
+  if (delta > EPS)
   {
     px1 = (-B - sqrt(delta)) / (2 * A);
     px2 = (-B + sqrt(delta)) / (2 * A);
+    
+    //std::cout<<delta<<std::endl;
+    //std::cout<<"px1"<<px1<<"px2"<<px2<<std::endl;
+    //std::cout<<intervalMin<<intervalMax<<px1<<px2<<std::endl;
 
     if (intervalMin <= px1 && px1 <= intervalMax)
     {
@@ -203,6 +218,8 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
   }
   else if (delta == 0.0)
   {
+    //std::cout<<"px"<<px<<std::endl;
+    //std::cout<<intervalMin<<intervalMax<<"DELTA=0"<<std::endl;
     px = -B / (2 * A);
   }
   else
@@ -223,16 +240,124 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
 
   Window *curr_w;
 
+  
+  
   // CHECK IF INTERSECTION:
   for (Window *curr_w : lw)
   {
     // 0 => new window, 1=> one window in list
-    int leftWindow;
 
     double px;
     Vector2d s_lw, s_rw;
 
-    if (w.get_b1() >= curr_w->get_b0() && w.get_b0() <= curr_w->get_b0())
+     
+    if (w.get_b0() == curr_w->get_b0() && w.get_b1() == curr_w->get_b1())
+    {
+         cout << " /!\\ CONFLIT 0 /!\\: " << endl;
+
+         double min_dist_w_s = 0.0;
+         double max_dist_w_s = 0.0;
+         double min_dist_curr_w_s = 0.0;
+         double max_dist_curr_w_s = 0.0;
+
+         Vector2d w_b0_2d = Vector2d(w.get_b0(),0);
+         Vector2d w_b1_2d = Vector2d(w.get_b1(),0);
+         Vector2d curr_w_b0_2d = Vector2d(curr_w->get_b0(),0); 
+         Vector2d curr_w_b1_2d = Vector2d(curr_w->get_b1(),0); 
+        
+         Vector2d s_w = compute_pseudo_source(w);
+         Vector2d s_curr_w = compute_pseudo_source(*curr_w);
+         double dist_w_s_b0 = (s_w - w_b0_2d).norm() + w.get_sigma();
+         double dist_w_s_b1 = (s_w  - w_b1_2d).norm() + w.get_sigma();
+         double dist_curr_w_s_b0 = (s_curr_w  - curr_w_b0_2d).norm() + curr_w->get_sigma();
+         double dist_curr_w_s_b1 = (s_curr_w - curr_w_b1_2d).norm() + curr_w->get_sigma();
+
+         // w
+
+         if (s_w[0] >= w.get_b0() && s_w[0] <= w.get_b1())
+         {
+             Vector2d point_on_segment = Vector2d(s_w[0],0);
+
+             min_dist_w_s = (s_w - point_on_segment).norm() + w.get_sigma();
+             max_dist_w_s = std::max(dist_w_s_b0,dist_w_s_b1);
+
+         }
+         else if (s_w[0] < w.get_b0())
+         {
+              Vector2d b0_2d = Vector2d(w.get_b0(),0); 
+              min_dist_w_s = (s_w - b0_2d).norm() + w.get_sigma();
+              max_dist_w_s = dist_w_s_b1;
+         }
+         else 
+         {
+              Vector2d b1_2d = Vector2d(w.get_b1(),0); 
+              min_dist_w_s = (s_w - b1_2d).norm() + w.get_sigma();
+              max_dist_w_s = dist_w_s_b0;
+         }
+
+         // curr_w
+
+         if (s_curr_w[0] >= curr_w->get_b0() && s_curr_w[0] <= curr_w->get_b1())
+         {
+             Vector2d point_on_segment = Vector2d(s_curr_w[0],0); 
+
+             min_dist_curr_w_s = (s_curr_w - point_on_segment).norm() + curr_w->get_sigma();
+             max_dist_curr_w_s = std::max(dist_curr_w_s_b0,dist_curr_w_s_b1);
+         }
+         else if ( s_curr_w[0] < curr_w->get_b0())
+         {
+              Vector2d b0_2d = Vector2d(curr_w->get_b0(),0); 
+              min_dist_curr_w_s = (s_curr_w - b0_2d).norm() + curr_w->get_sigma();
+              max_dist_curr_w_s = dist_curr_w_s_b1;
+         }
+         else 
+         {
+              Vector2d b1_2d = Vector2d(curr_w->get_b1(),0); 
+              min_dist_curr_w_s = (s_curr_w - b1_2d).norm() + curr_w->get_sigma();
+              max_dist_curr_w_s = dist_curr_w_s_b0;
+         }
+         
+         
+         if (max_dist_w_s < min_dist_curr_w_s)
+         {
+              // Replace curr_w par w
+              curr_w = &w;
+            
+         }
+         else if (max_dist_curr_w_s < min_dist_w_s)
+         {
+              // Replace w par curr_w
+              // Do not add window to list of windows
+              // but only on the queue
+         }
+         else 
+         {
+            //INTERSECTION
+             std::cout<<"perflectly equal.."<<std::endl;
+             w.print();
+             cout << endl;
+             curr_w->print();
+             cout << endl;
+             //std::cout<<"distances"<<std::endl;
+             //std::cout<<"max"<<std::endl;
+             //std::cout<<max_dist_w_s<<max_dist_curr_w_s<<std::endl;
+             //std::cout<<"min"<<std::endl;
+             //std::cout<<min_dist_w_s<<min_dist_curr_w_s<<std::endl;
+
+             auto intersection_tuple = computeIntersection(w, *curr_w);
+             s_lw = std::get<0>(intersection_tuple);
+             s_rw = std::get<1>(intersection_tuple);
+             px = std::get<2>(intersection_tuple);
+             Vector2d px2d = Vector2d(px, 0);
+             //std::cout<<"px"<<px<<std::endl;
+             
+         }
+         
+
+    
+    }
+    
+    else if (w.get_b1() > curr_w->get_b0() && w.get_b1() >= curr_w->get_b1())//&& w.get_b0() <= curr_w->get_b0())
     {
       cout << " /!\\ CONFLIT 1 /!\\: " << endl;
       w.print();
@@ -242,18 +367,13 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
 
       // colorWindow(VIEWER, w, RowVector3d(0, 0, 1));
 
-      /*           /\    /\
-           //     /  \  /  \
-           //    / w  \/  c \
-           //   /     /\     \
-               /     /  \     \  */
-      leftWindow = 0;
 
       auto intersection_tuple = computeIntersection(w, *curr_w);
       s_lw = std::get<0>(intersection_tuple);
       s_rw = std::get<1>(intersection_tuple);
       px = std::get<2>(intersection_tuple);
       Vector2d px2d = Vector2d(px, 0);
+      std::cout<<px<<std::endl;
 
       w.set_b1(px);
       w.set_d1((s_lw - px2d).norm());
@@ -261,24 +381,20 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
       curr_w->set_b0(px);
       curr_w->set_d0((s_rw - px2d).norm());
     }
-    else if (curr_w->get_b1() >= w.get_b0() && curr_w->get_b0() <= w.get_b0())
+    else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b1() >= w.get_b1()) //&& curr_w->get_b0() <= w.get_b0())
     {
       cout << " /!\\ CONFLIT 2 /!\\: " << endl;
       w.print();
       cout << endl;
       curr_w->print();
       cout << endl;
-      /*           /\    /\
-           //     /  \  /  \
-           //    / c  \/  w \
-           //   /     /\     \
-               /     /  \     \  */
-      leftWindow = 1;
+  
       auto intersection_tuple = computeIntersection(*curr_w, w);
       s_lw = std::get<0>(intersection_tuple);
       s_rw = std::get<1>(intersection_tuple);
       px = std::get<2>(intersection_tuple);
       Vector2d px2d = Vector2d(px, 0);
+      std::cout<<px<<std::endl;
 
       curr_w->set_b1(px);
       curr_w->set_d1((s_lw - px2d).norm());
@@ -294,11 +410,7 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
       curr_w->print();
       cout << endl;
       // curr_w totally englobes w
-      /*           /\            /\
-           //     /c \         |/c \
-           //    / /\ \        / \  \
-           //   / /  \ \      /|  \  \
-               / / w  \ \    / | w \  \  */
+     
       std::cout << "curr_w totally englobes w" << std::endl;
     }
     else if (curr_w->get_b0() >= w.get_b0() && curr_w->get_b1() <= w.get_b1())
@@ -309,18 +421,16 @@ void push_window(Window &w, std::queue<Window *> &Q, std::map<int, list<Window *
       curr_w->print();
       cout << endl;
       // w totally englobes curr_w
-      /*           /\            /\
-           //     /w \         |/w \
-           //    / /\ \        / \  \
-           //   / /  \ \      /|  \  \
-               / / c  \ \    / | c \  \  */
+     
       std::cout << "w totally englobes curr_w" << std::endl;
     }
     else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
     {
       std::cout << "NO INTERSECTION BETWEEN WINDOWS" << std::endl;
     }
+    
   }
+  
 
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
 
