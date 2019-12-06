@@ -174,6 +174,7 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
   double px1, px2, px;
   double delta = (B * B) - (4 * A * C);
 
+  cout << "delta: " << delta << endl;
   if (delta > EPS)
   {
     px1 = (-B - sqrt(delta)) / (2 * A);
@@ -195,10 +196,6 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
   else
   {
     cout << "IMPOSSIBLE BUT NO SOLUTION" << endl;
-    cout << "delta: " << delta << endl;
-    px = -B / (2 * A);
-    cout << "px Delta == 0: " << px << endl;
-    exit(0);
   }
 
   return std::make_tuple(s_lw, s_rw, px);
@@ -223,6 +220,11 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
     acc++;
     cout << " --> W " << acc << endl;
 
+    double min_dist_w_s = w.min_geodist();
+    double max_dist_w_s = w.max_geodist();
+    double min_dist_curr_w_s = curr_w->min_geodist();
+    double max_dist_curr_w_s = curr_w->max_geodist();
+
     double px;
     Vector2d s_lw, s_rw;
 
@@ -230,19 +232,11 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
     {
       cout << " /!\\ CONFLIT 0 /!\\: " << endl;
 
-      double min_dist_w_s = w.min_geodist();
-      double max_dist_w_s = w.max_geodist();
-      double min_dist_curr_w_s = curr_w->min_geodist();
-      double max_dist_curr_w_s = curr_w->max_geodist();
-
       if (max_dist_w_s < min_dist_curr_w_s)
       {
         // Replace curr_w par w
-        cout << "here 1" << endl;
         lw.remove(curr_w);
-        cout << "here 2" << endl;
-        remove_from_queue(Q, curr_w);
-        cout << "here 3" << endl;
+        // remove_from_queue(Q, curr_w);
       }
       else if (max_dist_curr_w_s < min_dist_w_s)
       {
@@ -251,6 +245,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         // Do not add window to list of windows
         // but only on the queue
         add_in_lw = false;
+        // add_in_Q = false;
       }
       else
       {
@@ -265,13 +260,30 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         s_lw = std::get<0>(intersection_tuple);
         s_rw = std::get<1>(intersection_tuple);
         px = std::get<2>(intersection_tuple);
-        Vector2d px2d = Vector2d(px, 0);
 
-        w.set_b1(px2d[0]);
-        w.set_d1((w.get_s() - px2d).norm());
+        if (0 < px && px <= curr_w->get_b1())
+        {
+          Vector2d px2d = Vector2d(px, 0);
 
-        curr_w->set_b0(px2d[0]);
-        curr_w->set_d1((curr_w->get_s() - px2d).norm());
+          w.set_d1((w.get_s() - px2d).norm());
+          w.set_b1(px2d(0));
+
+          curr_w->set_d1((curr_w->get_s() - px2d).norm());
+          curr_w->set_b0(px2d(0));
+        }
+        else
+        {
+          if (curr_w->min_geodist() <= w.min_geodist())
+          {
+            add_in_lw = false;
+            // add_in_Q = false;
+          }
+          else
+          {
+            lw.remove(curr_w);
+            // remove_from_queue(Q, curr_w);
+          }
+        }
       }
     }
 
@@ -290,13 +302,30 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       s_rw = std::get<1>(intersection_tuple);
       px = std::get<2>(intersection_tuple);
       Vector2d px2d = Vector2d(px, 0);
-      std::cout << px << std::endl;
+      cout << "px: " << px << endl;
 
-      w.set_b1(px);
-      w.set_d1((s_lw - px2d).norm());
+      if (0 <= px && px <= curr_w->get_b1())
+      {
 
-      curr_w->set_b0(px);
-      curr_w->set_d0((s_rw - px2d).norm());
+        w.set_b1(px);
+        w.set_d1((s_lw - px2d).norm());
+
+        curr_w->set_b0(px);
+        curr_w->set_d0((s_rw - px2d).norm());
+      }
+      else
+      {
+        if (curr_w->min_geodist() <= w.min_geodist())
+        {
+          add_in_lw = false;
+          // add_in_Q = false;
+        }
+        else
+        {
+          lw.remove(curr_w);
+          // remove_from_queue(Q, curr_w);
+        }
+      }
     }
     else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b1() >= w.get_b1()) //&& curr_w->get_b0() <= w.get_b0())
     {
@@ -311,13 +340,29 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       s_rw = std::get<1>(intersection_tuple);
       px = std::get<2>(intersection_tuple);
       Vector2d px2d = Vector2d(px, 0);
-      std::cout << px << std::endl;
+      cout << "px: " << px << endl;
 
-      curr_w->set_b1(px);
-      curr_w->set_d1((s_lw - px2d).norm());
+      if (0 <= px && px <= curr_w->get_b1())
+      {
+        curr_w->set_b1(px);
+        curr_w->set_d1((s_lw - px2d).norm());
 
-      w.set_b0(px);
-      w.set_d0((s_rw - px2d).norm());
+        w.set_b0(px);
+        w.set_d0((s_rw - px2d).norm());
+      }
+      else
+      {
+        if (curr_w->min_geodist() <= w.min_geodist())
+        {
+          add_in_lw = false;
+          // add_in_Q = false;
+        }
+        else
+        {
+          lw.remove(curr_w);
+          // remove_from_queue(Q, curr_w);
+        }
+      }
     }
     else if (w.get_b0() >= curr_w->get_b0() && w.get_b1() <= curr_w->get_b1())
     {
@@ -395,6 +440,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
 
   add_in_Q = add_in_Q && 0. < w.get_d0() && 0. < w.get_d1();
   add_in_Q = add_in_Q && abs(w.get_b0() - w.get_b1()) > EPS;
+  add_in_lw = add_in_lw && abs(w.get_b0() - w.get_b1()) > EPS;
 
   if (add_in_Q)
   {
@@ -447,28 +493,13 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, priority_queue<W
   // a*b0 + b = 0
   // a*vsx + b = vsy
   Vector2d l0, l1, lb; // two sides of the pencil of lights
-  // MatrixXd lA = Matrix2d(2, 2);
-  // lA(0, 0) = w.get_b0();
 
-  // lA(0, 1) = 1.;
-  // lA(1, 0) = s(0);
-  // lA(1., 1.) = 1.;
-  // lb(0) = 0;
-  // lb(1) = s(1);
-  // l0 = lA.colPivHouseholderQr().solve(lb); // first line
   l0 = compute_line(Vector2d(w.get_b0(), 0), s);
-
-  // lA(0, 0) = w.get_b1();
-  // l1 = lA.colPivHouseholderQr().solve(lb); // second line
   l1 = compute_line(Vector2d(w.get_b1(), 0), s);
 
   // line (p0,p2)  and line (p1,p2)
   Vector2d lp0p2, lp2p1;
   lp0p2 = Vector2d(p22d(1) / p22d(0), 0.);
-  // lA(0, 0) = p12d(0);
-  // lA(1, 0) = p22d(0);
-  // lb(1) = p22d(1);
-  // lp2p1 = lA.colPivHouseholderQr().solve(lb);
   lp2p1 = compute_line(p22d, p12d);
 
   // intersections
@@ -579,7 +610,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, priority_queue<W
       }
       else //! this case should not happen
       {
-        std::cout << "error I" << std::endl;
+        std::cout << "error case I" << std::endl;
         exit(0);
       }
     }
@@ -654,8 +685,19 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, priority_queue<W
       }
       else //! this case should not happen
       {
-        std::cout << "error case II" << std::endl;
-        exit(0);
+        cout << "error case II" << endl;
+        // cout << "w: " << endl;
+        // w.print();
+        // cout << endl;
+        // cout << "int_l0_lp0p2: " << endl
+        //      << int_l0_lp0p2 << endl;
+        // cout << "int_l1_lp0p2: " << endl
+        //      << int_l1_lp0p2 << endl;
+        // cout << "int_l0_lp2p1: " << endl
+        //      << int_l0_lp2p1 << endl;
+        // cout << "int_l1_lp2p1: " << endl
+        //      << int_l1_lp2p1 << endl;
+        // exit(0);
       }
     }
     else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS) // case II SYM
@@ -730,7 +772,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, priority_queue<W
       else //! this case should not happen
       {
         std::cout << "error case II SYM" << std::endl;
-        exit(0);
+        // exit(0);
       }
     }
     else //! this case should not happen
@@ -834,7 +876,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 100)
+    if (it > 10000)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       break;
@@ -847,7 +889,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     acc = 0;
     for (Window *pw_i : *(it->second))
     {
-      colorWindow(VIEWER, *pw_i, RowVector3d(1, 0, 0));
+      colorWindow(VIEWER, *pw_i, RowVector3d(1, 0, 0), false, false);
       ++acc;
     }
     if (acc > 0)
@@ -884,7 +926,6 @@ void example_1(char *file)
   HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
 
   exact_geodesics(he, V1, F1, vs);
-  // viewer.data(0).add_points(V1.row(vs), RowVector3d(0, 1, 0));
   set_meshes(viewer, V1, F1);
   viewer.launch();
 }
