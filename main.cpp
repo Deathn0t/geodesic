@@ -21,15 +21,41 @@ using namespace std;
 MatrixXd V1; // matrix storing vertex coordinates of the input curve
 MatrixXi F1;
 igl::opengl::glfw::Viewer VIEWER;
-// const double EPS = 1e-7;
 
 struct GreaterThanByDist
 {
   bool operator()(Window *w1, Window *w2) const
   {
-    return w1->get_sigma() > w2->get_sigma();
+    // return w1->get_sigma() > w2->get_sigma();
+    return w1->min_geodist() > w2->min_geodist();
   }
 };
+
+void remove_from_queue(priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, Window *pw)
+{
+  std::queue<Window *> q;
+  Window *curr_pw;
+  for (int i = 0; i < Q.size(); i++)
+  {
+    curr_pw = Q.top();
+    Q.pop();
+
+    if (curr_pw == pw)
+    {
+      break;
+    }
+    else
+    {
+      q.push(curr_pw);
+    }
+  }
+  for (int i = 0; i < q.size(); i++)
+  {
+    curr_pw = q.front();
+    q.pop();
+    Q.push(curr_pw);
+  }
+}
 
 bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
 {
@@ -166,21 +192,10 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
   double px1, px2, px;
   double delta = (B * B) - (4 * A * C);
 
-  px1 = (-B - sqrt(delta)) / (2 * A);
-  px2 = (-B + sqrt(delta)) / (2 * A);
-  px = -B / (2 * A);
-
-  std::cout << px1 << "-" << px2 << "-" << px << std::endl;
-  std::cout << s_lw << "-" << s_rw << std::endl;
-
   if (delta > EPS)
   {
     px1 = (-B - sqrt(delta)) / (2 * A);
     px2 = (-B + sqrt(delta)) / (2 * A);
-
-    //std::cout<<delta<<std::endl;
-    //std::cout<<"px1"<<px1<<"px2"<<px2<<std::endl;
-    //std::cout<<intervalMin<<intervalMax<<px1<<px2<<std::endl;
 
     if (intervalMin <= px1 && px1 <= intervalMax)
     {
@@ -193,13 +208,12 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
   }
   else if (delta == 0.0)
   {
-    //std::cout<<"px"<<px<<std::endl;
-    //std::cout<<intervalMin<<intervalMax<<"DELTA=0"<<std::endl;
     px = -B / (2 * A);
   }
   else
   {
     std::cout << "IMPOSSIBLE BUT NO SOLUTION" << std::endl;
+    exit(0);
   }
 
   return std::make_tuple(s_lw, s_rw, px);
@@ -208,10 +222,11 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
 void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
 {
   list<Window *> &lw = *e2w[w.get_edge_id()];
+  bool add_in_Q = true;
   bool add_in_lw = true;
 
-  // TODO: compute intersections with other window of same edges and replace if necessary
-  std::cout << "For edge id " << w.get_edge_id() << " evaluating conflicts:" << std::endl;
+  cout
+      << "For edge id " << w.get_edge_id() << " evaluating conflicts:" << endl;
 
   Window *curr_w;
 
@@ -235,18 +250,18 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       if (max_dist_w_s < min_dist_curr_w_s)
       {
         // Replace curr_w par w
-        curr_w = &w;
+        lw.remove(curr_w);
+        remove_from_queue(Q, curr_w);
       }
       else if (max_dist_curr_w_s < min_dist_w_s)
       {
         // Replace w par curr_w
-        // Do not add window to list of windows
-        // but only on the queue
+        add_in_lw = false;
       }
       else
       {
         //INTERSECTION
-        std::cout << "perflectly equal.." << std::endl;
+        cout << "perflectly equal.." << endl;
         w.print();
         cout << endl;
         curr_w->print();
@@ -340,13 +355,17 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
 
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
 
-  add_in_lw = add_in_lw && 0. < w.get_d0() && 0. < w.get_d1();
-  add_in_lw = add_in_lw && abs(w.get_b0() - w.get_b1()) > EPS;
+  add_in_Q = add_in_Q && 0. < w.get_d0() && 0. < w.get_d1();
+  add_in_Q = add_in_Q && abs(w.get_b0() - w.get_b1()) > EPS;
+
+  if (add_in_Q)
+  {
+    Q.push(&w);
+  }
 
   if (add_in_lw)
   {
     lw.push_front(&w);
-    Q.push(&w);
   }
 }
 
@@ -777,7 +796,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 100)
+    if (it > 10)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       break;
@@ -789,13 +808,13 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     acc = 0;
     for (Window *pw_i : *(it->second))
     {
-      colorWindow(VIEWER, *pw_i);
+      colorWindow(VIEWER, *pw_i, RowVector3d(1, 0, 0));
       ++acc;
     }
     if (acc > 0)
     {
       e2w[it->first] = new list<Window *>();
-      cout << "w_id " << it->first << " has " << acc << " windows" << endl;
+      // cout << "w_id " << it->first << " has " << acc << " windows" << endl;
     }
   }
 }
@@ -819,13 +838,14 @@ void example_1(char *file)
   cout << "file: " << file << endl;
   igl::readOFF(file, V1, F1);
   int vs = 0;
+  igl::opengl::glfw::Viewer &viewer = VIEWER;
+  viewer.data(0)
+      .add_points(V1.row(vs), RowVector3d(0, 1, 0));
   HalfedgeBuilder *builder = new HalfedgeBuilder();
   HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
 
-  igl::opengl::glfw::Viewer &viewer = VIEWER;
-
   exact_geodesics(he, V1, F1, vs);
-  viewer.data().add_points(V1.row(vs), Eigen::RowVector3d(1, 0, 0));
+  // viewer.data(0).add_points(V1.row(vs), RowVector3d(0, 1, 0));
   set_meshes(viewer, V1, F1);
   viewer.launch();
 }
@@ -860,8 +880,3 @@ int main(int argc, char *argv[])
     example_1(argv[1]);
   }
 }
-
-// int main(int argc, char *argv[])
-// {
-//   priority_queue<Window *, vector<Window *>, GreaterThanByDist> Q;
-// }
