@@ -99,24 +99,6 @@ void add_window_Q(std::map<int, list<Window *> *> &e2w, priority_queue<Window *,
   double sigma = 0;
   int dir = 0;
 
-  double x0, x1, c, delta, x, y_s1, y_s2;
-
-  x = (d1 * d1 - d0 * d0 - x1 * x1 + x0 * x0) / (2 * (x0 - x1));
-  c = x1 * x1 + x * x - 2 * x1 * x - d1 * d1;
-  delta = sqrt(-4 * c);
-  y_s1 = delta / 2;
-  y_s2 = -delta / 2;
-
-  Vector2d s;
-  if (y_s1 > 0.)
-  {
-    s = Vector2d(x, y_s1);
-  }
-  else
-  {
-    s = Vector2d(x, y_s2);
-  }
-
   Window *newWindow;
   newWindow = new Window(b0, b1, d0, d1, sigma, dir, edge_id, v0, v1, v0id, v1id);
   addColorEdge(VIEWER, *newWindow, RowVector3d(0, 1, 0));
@@ -206,13 +188,16 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
       px = px2;
     }
   }
-  else if (delta == 0.0)
+  else if (-EPS <= delta && delta <= EPS)
   {
     px = -B / (2 * A);
   }
   else
   {
-    std::cout << "IMPOSSIBLE BUT NO SOLUTION" << std::endl;
+    cout << "IMPOSSIBLE BUT NO SOLUTION" << endl;
+    cout << "delta: " << delta << endl;
+    px = -B / (2 * A);
+    cout << "px Delta == 0: " << px << endl;
     exit(0);
   }
 
@@ -222,6 +207,7 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
 void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
 {
   list<Window *> &lw = *e2w[w.get_edge_id()];
+  list<Window *> copy_lw = *e2w[w.get_edge_id()];
   bool add_in_Q = true;
   bool add_in_lw = true;
 
@@ -229,16 +215,18 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       << "For edge id " << w.get_edge_id() << " evaluating conflicts:" << endl;
 
   Window *curr_w;
-
+  int acc = 0;
   // CHECK IF INTERSECTION:
-  for (Window *curr_w : lw)
+  for (Window *curr_w : copy_lw)
   {
     // 0 => new window, 1=> one window in list
+    acc++;
+    cout << " --> W " << acc << endl;
 
     double px;
     Vector2d s_lw, s_rw;
 
-    if (w.get_b0() == curr_w->get_b0() && w.get_b1() == curr_w->get_b1())
+    if (abs(w.get_b0() - curr_w->get_b0()) <= EPS && abs(w.get_b1() - curr_w->get_b1()) <= EPS)
     {
       cout << " /!\\ CONFLIT 0 /!\\: " << endl;
 
@@ -250,8 +238,11 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       if (max_dist_w_s < min_dist_curr_w_s)
       {
         // Replace curr_w par w
+        cout << "here 1" << endl;
         lw.remove(curr_w);
+        cout << "here 2" << endl;
         remove_from_queue(Q, curr_w);
+        cout << "here 3" << endl;
       }
       else if (max_dist_curr_w_s < min_dist_w_s)
       {
@@ -796,12 +787,13 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     // propagate selected window
     propagate_window(V, he, cur_w, Q, e2w);
 
-    if (it > 10)
+    if (it > 100)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       break;
     }
   }
+
   int acc;
   for (map<int, list<Window *> *>::iterator it = e2w.begin(); it != e2w.end(); ++it)
   {
