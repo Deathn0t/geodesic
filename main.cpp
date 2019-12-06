@@ -166,21 +166,10 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
   double px1, px2, px;
   double delta = (B * B) - (4 * A * C);
 
-  px1 = (-B - sqrt(delta)) / (2 * A);
-  px2 = (-B + sqrt(delta)) / (2 * A);
-  px = -B / (2 * A);
-
-  std::cout << px1 << "-" << px2 << "-" << px << std::endl;
-  std::cout << s_lw << "-" << s_rw << std::endl;
-
   if (delta > EPS)
   {
     px1 = (-B - sqrt(delta)) / (2 * A);
     px2 = (-B + sqrt(delta)) / (2 * A);
-
-    //std::cout<<delta<<std::endl;
-    //std::cout<<"px1"<<px1<<"px2"<<px2<<std::endl;
-    //std::cout<<intervalMin<<intervalMax<<px1<<px2<<std::endl;
 
     if (intervalMin <= px1 && px1 <= intervalMax)
     {
@@ -193,8 +182,6 @@ std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, W
   }
   else if (delta == 0.0)
   {
-    //std::cout<<"px"<<px<<std::endl;
-    //std::cout<<intervalMin<<intervalMax<<"DELTA=0"<<std::endl;
     px = -B / (2 * A);
   }
   else
@@ -235,34 +222,40 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       if (max_dist_w_s < min_dist_curr_w_s)
       {
         // Replace curr_w par w
-        curr_w = &w;
+          curr_w = &w;
       }
       else if (max_dist_curr_w_s < min_dist_w_s)
       {
+        
         // Replace w par curr_w
         // Do not add window to list of windows
         // but only on the queue
+         add_in_lw = false;
+        
       }
       else
       {
         //INTERSECTION
+
         std::cout << "perflectly equal.." << std::endl;
         w.print();
         cout << endl;
         curr_w->print();
         cout << endl;
-        //std::cout<<"distances"<<std::endl;
-        //std::cout<<"max"<<std::endl;
-        //std::cout<<max_dist_w_s<<max_dist_curr_w_s<<std::endl;
-        //std::cout<<"min"<<std::endl;
-        //std::cout<<min_dist_w_s<<min_dist_curr_w_s<<std::endl;
-
+  
         auto intersection_tuple = computeIntersection(w, *curr_w);
         s_lw = std::get<0>(intersection_tuple);
         s_rw = std::get<1>(intersection_tuple);
         px = std::get<2>(intersection_tuple);
         Vector2d px2d = Vector2d(px, 0);
-        //std::cout<<"px"<<px<<std::endl;
+
+
+        w.set_b1(px2d[0]);
+        w.set_d1((w.get_s()-px2d).norm());
+
+        curr_w->set_b0(px2d[0]);
+        curr_w->set_d1((curr_w->get_s()-px2d).norm());
+      
       }
     }
 
@@ -317,6 +310,53 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       cout << endl;
       curr_w->print();
       cout << endl;
+
+     // LEFT
+     /*
+     double curr_w_b0 = curr_w->get_b0();
+     double w_b1 = w.get_b1();
+     double curr_w_d0 = curr_w->get_d0();
+     double curr_w_d1 =( curr_w->get_s() - Vector2d (w.get_b1(),0)).norm();
+     double curr_w_sigma = curr_w->get_sigma();
+     int curr_w_edge_id = curr_w->get_edge_id();
+     Vector2d curr_w_v0 = curr_w->get_v0();
+     Vector2d curr_w_v1 = curr_w->get_v1();
+     int curr_w_v0id = curr_w->get_v0id();
+     int curr_w_v1id = curr_w->get_v1id();
+
+      Window curr_w_changed1 = new Window(
+            curr_w_b0,
+            w_b1,
+            curr_w_d0 ,
+            curr_w_d1,
+            curr_w_sigma,
+            0., curr_w_edge_id, curr_w_v0, curr_w_v1, curr_w_v0id, curr_w_v1id);
+
+      auto intersection_tuple1 = computeIntersection(curr_w_changed1, w);
+      Vector2d s_lw1 = std::get<0>(intersection_tuple1);
+      Vector2d s_rw1 = std::get<1>(intersection_tuple1);
+      double px1 = std::get<2>(intersection_tuple1);
+      Vector2d px1_2d = Vector2d(px1, 0);
+      std::cout << px1 << std::endl;
+
+      // RIGHT
+      
+       Window curr_w_changed2 = new Window(
+            w.get_b0(),
+            curr_w->get_b1(),
+           (curr_w->get_s() - Vector2d (w.get_b0(),0)).norm(),
+            curr_w->get_d1(),
+            curr_w->get_sigma(),
+            0., curr_w->get_edge_id(), curr_w->get_v0(), curr_w->get_v1(), curr_w->get_v0id(), curr_w->get_v1id());
+
+      auto intersection_tuple2 = computeIntersection(w,curr_w_changed2);
+      Vector2d s_lw2 = std::get<0>(intersection_tuple2);
+      Vector2d s_rw2 = std::get<1>(intersection_tuple2);
+      double px2 = std::get<2>(intersection_tuple2);
+      Vector2d px2_2d = Vector2d(px2, 0);
+      std::cout << px2 << std::endl;
+      */
+
       // curr_w totally englobes w
 
       std::cout << "curr_w totally englobes w" << std::endl;
@@ -324,10 +364,10 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
     else if (curr_w->get_b0() >= w.get_b0() && curr_w->get_b1() <= w.get_b1())
     {
       cout << " /!\\ CONFLIT 4 /!\\: " << endl;
-      w.print();
-      cout << endl;
-      curr_w->print();
-      cout << endl;
+      
+
+      
+   
       // w totally englobes curr_w
 
       std::cout << "w totally englobes curr_w" << std::endl;
