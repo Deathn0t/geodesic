@@ -146,6 +146,11 @@ void Window::print()
         << ")";
 }
 
+double Window::norm_edge()
+{
+    return (v0 - v1).norm();
+}
+
 double Window::min_geodist()
 {
     double min_dist_w_s = 0.0;

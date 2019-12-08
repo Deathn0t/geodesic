@@ -22,16 +22,16 @@ void addColorEdge(igl::opengl::glfw::Viewer &viewer, Window &w, RowVector3d colo
 
     if (left)
     {
-        viewer.data(0).add_points(point1, color);
+        viewer.data().add_points(point1, color);
     }
 
     if (right)
     {
 
-        viewer.data(0).add_points(point2, color);
+        viewer.data().add_points(point2, color);
     }
 
-    viewer.data(0).add_edges(point1, point2, color);
+    viewer.data().add_edges(point1, point2, color);
 }
 
 void colorWindow(igl::opengl::glfw::Viewer &viewer, Window &w, RowVector3d color, bool left, bool right)
@@ -55,14 +55,14 @@ void colorWindow(igl::opengl::glfw::Viewer &viewer, Window &w, RowVector3d color
 
     if (left)
     {
-        viewer.data(0).add_points(point1, color);
+        viewer.data().add_points(point1, color);
     }
 
     if (right)
     {
 
-        viewer.data(0).add_points(point2, color);
+        viewer.data().add_points(point2, color);
     }
 
-    viewer.data(0).add_edges(point1, point2, color);
+    viewer.data().add_edges(point1, point2, color);
 }

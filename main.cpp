@@ -5,6 +5,7 @@
 #include <igl/knn.h>
 #include <igl/writeOBJ.h>
 #include <igl/edges.h>
+#include <igl/exact_geodesic.h>
 #include <iostream>
 #include <ostream>
 #include <queue>
@@ -21,6 +22,7 @@ using namespace std;
 MatrixXd V1; // matrix storing vertex coordinates of the input curve
 MatrixXi F1;
 igl::opengl::glfw::Viewer VIEWER;
+int ID_VS;
 
 struct GreaterThanByDist
 {
@@ -64,10 +66,33 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
   if (key == '1')
   {
 
-    viewer.data(0).clear(); // Clear should be called before drawing the mesh
-    viewer.data(0).set_mesh(V1, F1);
-    viewer.data(0).set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3));
+    viewer.data().clear(); // Clear should be called before drawing the mesh
+    viewer.data().set_mesh(V1, F1);
+    viewer.data().set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3));
     // update the mesh (both coordinates and faces)
+  }
+  else if (key == '2')
+  {
+    cout << "Execute LIB IGL" << endl;
+    // FROM LIB IGL: https://github.com/libigl/libigl/blob/master/tutorial/206_GeodesicDistance/main.cpp
+    viewer.data().clear();
+    Eigen::VectorXi VS, FS, VT, FT;
+    // The selected vertex is the source
+    VS.resize(1);
+    VS << ID_VS;
+    // All vertices are the targets
+    VT.setLinSpaced(V1.rows(), 0, V1.rows() - 1);
+    Eigen::VectorXd d;
+    igl::exact_geodesic(V1, F1, VS, FS, VT, FT, d);
+    const double strip_size = 0.05;
+    // The function should be 1 on each integer coordinate
+    d = (d / strip_size * igl::PI).array().sin().abs().eval();
+    // Compute per-vertex colors
+    Eigen::MatrixXd C;
+    igl::colormap(igl::COLOR_MAP_TYPE_INFERNO, d, false, C);
+    // Plot the mesh
+    viewer.data().set_mesh(V1, F1);
+    viewer.data().set_colors(C);
   }
 
   return false;
@@ -76,10 +101,9 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
 void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F)
 {
   viewer.callback_key_down = &key_down; // for dealing with keyboard events
-  viewer.data(0).set_mesh(V, F);
-  viewer.append_mesh();
-  viewer.data(0).show_faces = true;
-  viewer.data(0).show_lines = false;
+  viewer.data().set_mesh(V, F);
+  // viewer.data().show_faces = true;
+  // viewer.data().show_lines = false;
 }
 
 void set_pc(igl::opengl::glfw::Viewer &viewer)
@@ -122,22 +146,22 @@ void init_edgeid2windows(std::map<int, list<Window *> *> &e2w, HalfedgeDS &he)
 /**
  * Initialize a queue Q with a window for each edge adjacent to source vs.
  */
-void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, std::map<int, list<Window *> *> &e2w)
+void init_Q(HalfedgeDS &he, int id_vs, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, std::map<int, list<Window *> *> &e2w)
 {
 
   Vector3d vs, v_init, v_b0, v_b1;
   int incidentEdge, nextEdge;
   int v0id, v1id;
 
-  vs = V.row(id_vs);
+  vs = V1.row(id_vs);
   incidentEdge = he.getEdge(id_vs);
   nextEdge = he.getNext(incidentEdge);
-  v_init = V.row(he.getTarget(nextEdge));
+  v_init = V1.row(he.getTarget(nextEdge));
   v0id = he.getTarget(nextEdge);
 
   nextEdge = he.getNext(nextEdge);
   v1id = he.getTarget(nextEdge);
-  v_b1 = V.row(he.getTarget(nextEdge));
+  v_b1 = V1.row(he.getTarget(nextEdge));
 
   add_window_Q(e2w, Q, vs, v_init, v_b1, nextEdge, v0id, v1id);
 
@@ -146,7 +170,7 @@ void init_Q(HalfedgeDS &he, int id_vs, MatrixXd &V, priority_queue<Window *, vec
     v_b0 = v_b1;
     v0id = v1id;
     nextEdge = he.getNext(he.getOpposite(he.getNext(nextEdge)));
-    v_b1 = V.row(he.getTarget(nextEdge));
+    v_b1 = V1.row(he.getTarget(nextEdge));
     v1id = he.getTarget(nextEdge);
 
     add_window_Q(e2w, Q, vs, v_b0, v_b1, nextEdge, v0id, v1id);
@@ -453,7 +477,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
   }
 }
 
-void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
+void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
 {
   Window w = *p_w;
   addColorEdge(VIEWER, w, RowVector3d(1, 0, 1));
@@ -473,7 +497,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, priority_queue<W
   Vector3d p03d, p13d, p23d;
   p03d = w.get_v0();
   p13d = w.get_v1();
-  p23d = V.row(p2id).transpose();
+  p23d = V1.row(p2id).transpose();
 
   // our x-axis is the (p0,p1) ligne then we compute the angle theta between (p0,p1) and (p0,p2) to get p2 in our 2D representation
   Vector3d u = p03d - p13d;
@@ -845,7 +869,7 @@ void propagate_window(MatrixXd &V, HalfedgeDS &he, Window *p_w, priority_queue<W
  * output:
  *    ...: something with all windows computed to apply backtracing?
  */
-void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
+map<int, list<Window *> *> *exact_geodesics(HalfedgeDS &he, int id_vs)
 {
 
   // initialize the queue Q with a window for each edge adjacent
@@ -854,11 +878,11 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
   // auto cmp = [](Window *l, Window *r) { return l->get_sigma() < r->get_sigma(); };
   // priority_queue<Window *, vector<Window *>, decltype(greaterw)> Q(greaterw);
   priority_queue<Window *, vector<Window *>, GreaterThanByDist> Q;
-  map<int, list<Window *> *> e2w; // map edge id to windows
+  map<int, list<Window *> *> *e2w = new map<int, list<Window *> *>(); // map edge id to windows
 
-  init_edgeid2windows(e2w, he);
+  init_edgeid2windows(*e2w, he);
   cout << "init edgeid2windows(): OK" << endl;
-  init_Q(he, id_vs, V, Q, e2w);
+  init_Q(he, id_vs, Q, *e2w);
   cout << "init init_Q(): OK" << endl;
 
   Window *cur_w; // current window during iterations
@@ -874,9 +898,9 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     Q.pop();
 
     // propagate selected window
-    propagate_window(V, he, cur_w, Q, e2w);
+    propagate_window(he, cur_w, Q, *e2w);
 
-    if (it > 10000)
+    if (it > 1000)
     {
       std::cout << "break after " << it << "iterations" << std::endl;
       break;
@@ -884,7 +908,7 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
   }
 
   int acc;
-  for (map<int, list<Window *> *>::iterator it = e2w.begin(); it != e2w.end(); ++it)
+  for (map<int, list<Window *> *>::iterator it = e2w->begin(); it != e2w->end(); ++it)
   {
     acc = 0;
     for (Window *pw_i : *(it->second))
@@ -894,10 +918,12 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
     }
     if (acc > 0)
     {
-      e2w[it->first] = new list<Window *>();
+      (*e2w)[it->first] = new list<Window *>();
       // cout << "w_id " << it->first << " has " << acc << " windows" << endl;
     }
   }
+
+  return e2w;
 }
 
 /**
@@ -909,23 +935,81 @@ void exact_geodesics(HalfedgeDS &he, MatrixXd &V, MatrixXi &F, int id_vs)
  * output:
  *    ...: a kind of a list probably which represents the path?
  */
-void retrieve_path(Vector3d &vs, Vector3d &ve)
+
+Window *select_best_window(int v, HalfedgeDS &he, map<int, list<Window *> *> &e2w)
 {
-  // TODO
+  // TO BE COMPLETED
+  Window *w = NULL;
+
+  int in_e = he.getEdge(v);
+  int out_e = he.getOpposite(in_e);
+
+  list<Window *>::iterator it = (*e2w[in_e]).begin();
+  cout << "ssssds" << endl;
+  Window *cw;
+  for (list<Window *>::iterator it = (*e2w[in_e]).begin(); it != (*e2w[in_e]).end(); ++it)
+  // std::cout << ' ' << *it;
+
+  {
+    cout << "here" << endl;
+    cw = *it;
+
+    if (cw->get_v0() == V1.row(v).transpose())
+    { // v is b0
+      if (cw->get_b0() <= EPS)
+      {
+        w = cw;
+        break;
+      }
+    }
+    else
+    { // v is b1
+      if (abs(cw->get_b1() - cw->norm_edge()) <= EPS)
+      {
+        w = cw;
+        break;
+      }
+    }
+  }
+
+  // colorWindow(VIEWER, *w, RowVector3d(0.8, 0.8, 0), true, true);
+
+  // int e = in_e;
+  // int pEdge = he->getOpposite(he->getNext(e));
+
+  // while (pEdge != e)
+  // {
+  //   pEdge = he->getOpposite(he->getNext(pEdge));
+  // }
+
+  return w;
+}
+
+void retrieve_path(int &vs_id, int &ve_id, HalfedgeDS &he, map<int, list<Window *> *> &e2w)
+{
+  Window *w = select_best_window(ve_id, he, e2w);
 }
 
 void example_1(char *file)
 {
   cout << "file: " << file << endl;
   igl::readOFF(file, V1, F1);
-  int vs = 0;
+  ID_VS = 0;
+  int ve = 15;
   igl::opengl::glfw::Viewer &viewer = VIEWER;
-  viewer.data(0)
-      .add_points(V1.row(vs), RowVector3d(0, 1, 0));
+
+  viewer.data()
+      .add_points(V1.row(ID_VS), RowVector3d(0, 1, 0));
+  viewer.data()
+      .add_points(V1.row(ve), RowVector3d(0, 0.5, 0));
+
   HalfedgeBuilder *builder = new HalfedgeBuilder();
   HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
 
-  exact_geodesics(he, V1, F1, vs);
+  map<int, list<Window *> *> *e2w = exact_geodesics(he, ID_VS);
+
+  retrieve_path(ID_VS, ve, he, *e2w);
+
   set_meshes(viewer, V1, F1);
   viewer.launch();
 }
@@ -934,16 +1018,16 @@ void example_2(char *file)
 {
   cout << "file: " << file << endl;
   igl::readOFF(file, V1, F1);
-  int vs = 1195;
+  ID_VS = 1195;
   HalfedgeBuilder *builder = new HalfedgeBuilder();
   HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1));
 
   igl::opengl::glfw::Viewer &viewer = VIEWER;
 
-  exact_geodesics(he, V1, F1, vs);
+  exact_geodesics(he, ID_VS);
 
   viewer.data()
-      .add_points(V1.row(vs), Eigen::RowVector3d(1, 0, 0));
+      .add_points(V1.row(ID_VS), Eigen::RowVector3d(1, 0, 0));
   set_meshes(viewer, V1, F1);
   viewer.launch();
 }

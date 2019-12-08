@@ -58,6 +58,8 @@ public:
 
     Vector2d get_s();
 
+    double norm_edge();
+
     double min_geodist();
 
     double max_geodist();
