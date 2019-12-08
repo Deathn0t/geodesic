@@ -10,7 +10,6 @@ Vector2d intersect(Vector2d u, Vector2d v)
     // y coord. of the intersection between l1 and l2
     inter(1) = v(0) * inter(0) + v(1);
 
-    cout << (u(0) * inter(0) + u(1)) << " " << (v(0) * inter(0) + v(1)) << " " << inter(1) << endl;
     return inter;
 }
 

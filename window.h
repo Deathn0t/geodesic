@@ -64,5 +64,9 @@ public:
 
     double max_geodist();
 
+    double geodist_b0();
+
+    double geodist_b1();
+
     void print();
 };
