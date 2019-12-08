@@ -51,22 +51,22 @@ double Window::get_b1()
 
 void Window::set_b0(double new_b0)
 {
-    if (new_b0 < 0)
+    if (abs(new_b0) <= EPS)
     {
-        cout << "new_b0: " << new_b0 << endl;
-        // exit(0);
+        b0 = 0.;
+    } else {
+        b0 = new_b0;
     }
-    b0 = new_b0;
 }
 
 void Window::set_b1(double new_b1)
 {
-    if (new_b1 > (v0 - v1).norm())
+    if (abs(new_b1-norm_edge()) <= EPS)
     {
-        cout << "new_b1: " << new_b1 << ", norm: " << (v0 - v1).norm() << endl;
-        // exit(0);
+        b1 = norm_edge();
+    } else {
+        b1 = new_b1;
     }
-    b1 = new_b1;
 }
 
 Vector3d Window::get_v0()
@@ -219,8 +219,7 @@ double Window::geodist_b0()
 {
     Vector2d w_b0_2d = Vector2d(get_b0(), 0);
 
-    Vector2d s_w = get_s();
-    double dist_w_s_b0 = (s_w - w_b0_2d).norm() + get_sigma();
+    double dist_w_s_b0 = (get_s() - w_b0_2d).norm() + get_sigma();
 
     return dist_w_s_b0;
 }
@@ -229,8 +228,7 @@ double Window::geodist_b1()
 {
     Vector2d w_b1_2d = Vector2d(get_b1(), 0);
 
-    Vector2d s_w = get_s();
-    double dist_w_s_b1 = (s_w - w_b1_2d).norm() + get_sigma();
+    double dist_w_s_b1 = (get_s() - w_b1_2d).norm() + get_sigma();
 
     return dist_w_s_b1;
 }

@@ -5,6 +5,8 @@
 using namespace Eigen;
 using namespace std;
 
+const double EPS = 1e-7;
+
 class Window
 {
 private:

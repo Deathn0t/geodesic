@@ -1036,6 +1036,14 @@ void retrieve_path(int &vs_id, int &ve_id, HalfedgeDS &he, map<int, list<Window 
 
 void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F);
 
+
+void show_source_target(igl::opengl::glfw::Viewer &viewer) {
+  viewer.data()
+      .add_points(V1.row(ID_VS), RowVector3d(0, 1, 0));
+  viewer.data()
+      .add_points(V1.row(ID_VT), RowVector3d(0, 0.5, 0));
+}
+
 bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
 {
   std::cout << "pressed Key: " << key << " " << (unsigned int)key << std::endl;
@@ -1048,6 +1056,7 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
 
     retrieve_path(ID_VS, ID_VT, *HE, *e2w);
     set_meshes(viewer, V1, F1);
+    show_source_target(viewer);
     // update the mesh (both coordinates and faces)
   }
   else if (key == '2')
@@ -1073,6 +1082,7 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
     // Plot the mesh
     viewer.data().set_mesh(V1, F1);
     viewer.data().set_colors(C);
+    show_source_target(viewer);
   }
 
   return false;
@@ -1111,15 +1121,11 @@ int main(int argc, char *argv[])
   igl::readOFF(file, V1, F1);
   igl::opengl::glfw::Viewer &viewer = VIEWER;
 
-  viewer.data()
-      .add_points(V1.row(ID_VS), RowVector3d(0, 1, 0));
-  viewer.data()
-      .add_points(V1.row(ID_VT), RowVector3d(0, 0.5, 0));
-
   HalfedgeBuilder *builder = new HalfedgeBuilder();
   HalfedgeDS he = builder->createMeshWithFaces(V1.rows(), F1);
   HE = &he;
 
   set_meshes(viewer, V1, F1);
+  show_source_target(viewer);
   viewer.launch();
 }

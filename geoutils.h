@@ -14,7 +14,7 @@
 using namespace Eigen;
 using namespace std;
 
-const double EPS = 1e-7;
+// const double EPS = 1e-7;
 
 Vector2d intersect(Vector2d u, Vector2d v);
 
