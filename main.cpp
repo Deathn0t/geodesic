@@ -910,7 +910,7 @@ map<int, list<Window *> *> *exact_geodesics(HalfedgeDS &he, int id_vs)
  *    ...: a kind of a list probably which represents the path?
  */
 
-Window *select_best_window(int v, HalfedgeDS &he, map<int, list<Window *> *> &e2w)
+double compute_geodist(int v, HalfedgeDS &he, map<int, list<Window *> *> &e2w)
 {
   // TO BE COMPLETED
   Window *w = NULL;
@@ -1026,18 +1026,13 @@ Window *select_best_window(int v, HalfedgeDS &he, map<int, list<Window *> *> &e2
   }
 
   cout << "PERSO: geodesic distance for target vertex " << ID_VT << " -> " << best_geodist << endl;
-  return w;
-}
-
-void retrieve_path(int &vs_id, int &ve_id, HalfedgeDS &he, map<int, list<Window *> *> &e2w)
-{
-  Window *w = select_best_window(ve_id, he, e2w);
+  return best_geodist;
 }
 
 void set_meshes(igl::opengl::glfw::Viewer &viewer, MatrixXd &V, MatrixXi &F);
 
-
-void show_source_target(igl::opengl::glfw::Viewer &viewer) {
+void show_source_target(igl::opengl::glfw::Viewer &viewer)
+{
   viewer.data()
       .add_points(V1.row(ID_VS), RowVector3d(0, 1, 0));
   viewer.data()
@@ -1054,7 +1049,7 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
     viewer.data().clear();
     map<int, list<Window *> *> *e2w = exact_geodesics(*HE, ID_VS);
 
-    retrieve_path(ID_VS, ID_VT, *HE, *e2w);
+    compute_geodist(ID_VT, *HE, *e2w);
     set_meshes(viewer, V1, F1);
     show_source_target(viewer);
     // update the mesh (both coordinates and faces)
@@ -1115,7 +1110,8 @@ int main(int argc, char *argv[])
   }
 
   //ID_VS = 0; ID_VT = 5; // sphere
-  ID_VS = 0; ID_VT = 1902; // gargoyle
+  ID_VS = 0;
+  ID_VT = 1902; // gargoyle
   // ID_VS = 1195; ID_VT = 1902; // gargoyle paper
 
   igl::readOFF(file, V1, F1);
