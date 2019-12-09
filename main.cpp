@@ -495,7 +495,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       double px2 = std::get<2>(intersection_tuple2);
       Vector2d px2_2d = Vector2d(px2, 0);
 
-    
+      
       w.print();
       cout << endl;
       curr_w->print();
