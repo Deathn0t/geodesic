@@ -376,28 +376,28 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         }
       }
     }
-    else if (w.get_b0() >= curr_w->get_b0() && w.get_b1() <= curr_w->get_b1())
+    else if (curr_w->get_b0() <= w.get_b0() && w.get_b1() <= curr_w->get_b1())
     {
-      // cout << " /!\\ CONFLIT 3 /!\\: " << endl;
-      // w.print();
-      // cout << endl;
-      // curr_w->print();
-      // cout << endl;
+       cout << " /!\\ CONFLIT 3 /!\\: " << endl;  
+        w.print();
+        cout << endl;
+        curr_w->print();
+         cout << endl;
 
       // LEFT
-      /*
+    
      double curr_w_b0 = curr_w->get_b0();
      double w_b1 = w.get_b1();
      double curr_w_d0 = curr_w->get_d0();
      double curr_w_d1 =( curr_w->get_s() - Vector2d (w.get_b1(),0)).norm();
      double curr_w_sigma = curr_w->get_sigma();
      int curr_w_edge_id = curr_w->get_edge_id();
-     Vector2d curr_w_v0 = curr_w->get_v0();
-     Vector2d curr_w_v1 = curr_w->get_v1();
+     Vector3d curr_w_v0 = curr_w->get_v0();
+     Vector3d curr_w_v1 = curr_w->get_v1();
      int curr_w_v0id = curr_w->get_v0id();
      int curr_w_v1id = curr_w->get_v1id();
 
-      Window curr_w_changed1 = new Window(
+     Window *curr_w_changed1 = new Window(
             curr_w_b0,
             w_b1,
             curr_w_d0 ,
@@ -405,7 +405,9 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
             curr_w_sigma,
             0., curr_w_edge_id, curr_w_v0, curr_w_v1, curr_w_v0id, curr_w_v1id);
 
-      auto intersection_tuple1 = computeIntersection(curr_w_changed1, w);
+  
+
+      auto intersection_tuple1 = computeIntersection(*curr_w_changed1, w);
       Vector2d s_lw1 = std::get<0>(intersection_tuple1);
       Vector2d s_rw1 = std::get<1>(intersection_tuple1);
       double px1 = std::get<2>(intersection_tuple1);
@@ -414,29 +416,91 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
 
       // RIGHT
 
-       Window curr_w_changed2 = new Window(
-            w.get_b0(),
-            curr_w->get_b1(),
-           (curr_w->get_s() - Vector2d (w.get_b0(),0)).norm(),
-            curr_w->get_d1(),
-            curr_w->get_sigma(),
-            0., curr_w->get_edge_id(), curr_w->get_v0(), curr_w->get_v1(), curr_w->get_v0id(), curr_w->get_v1id());
+      double w_b0 = w.get_b0();
+      double curr_w_b1 = curr_w->get_b1();
+      double curr_w_d0_2 = (curr_w->get_s() - Vector2d (w.get_b0(),0)).norm();
+      double curr_w_d1_2 = curr_w->get_d1();
+    
+       Window *curr_w_changed2 = new Window(
+            w_b0,
+            curr_w_b1,
+            curr_w_d0_2,
+            curr_w_d1_2,
+            curr_w_sigma,
+            0., curr_w_edge_id, curr_w_v0, curr_w_v1, curr_w_v0id, curr_w_v1id);
 
-      auto intersection_tuple2 = computeIntersection(w,curr_w_changed2);
+      auto intersection_tuple2 = computeIntersection(w,*curr_w_changed2);
       Vector2d s_lw2 = std::get<0>(intersection_tuple2);
       Vector2d s_rw2 = std::get<1>(intersection_tuple2);
       double px2 = std::get<2>(intersection_tuple2);
       Vector2d px2_2d = Vector2d(px2, 0);
       std::cout << px2 << std::endl;
-      */
+
+      std::cout<<px1<<px2<<std::endl;
+      
 
       // curr_w totally englobes w
 
       // cout << "curr_w totally englobes w" << endl;
     }
-    else if (curr_w->get_b0() >= w.get_b0() && curr_w->get_b1() <= w.get_b1())
+    else if (w.get_b0() <= curr_w->get_b0() && curr_w->get_b1() <= w.get_b1())
     {
-      // cout << " /!\\ CONFLIT 4 /!\\: " << endl;
+       cout << " /!\\ CONFLIT 4 /!\\: " << endl;
+
+       
+     double w_b0 = w.get_b0();
+     double curr_b1 = curr_w->get_b1();
+     double w_d0 = w.get_d0();
+     double w_d1 = (w.get_s() - Vector2d (curr_w->get_b1(),0)).norm();
+     double w_sigma = w.get_sigma();
+     int w_edge_id = w.get_edge_id();
+     Vector3d w_v0 = w.get_v0();
+     Vector3d w_v1 = w.get_v1();
+     int w_v0id = w.get_v0id();
+     int w_v1id = w.get_v1id();
+
+     Window *w_changed1 = new Window(
+            w_b0,
+            curr_b1,
+            w_d0 ,
+            w_d1,
+            w_sigma,
+            0., w_edge_id, w_v0, w_v1, w_v0id, w_v1id);
+
+
+      auto intersection_tuple1 = computeIntersection(*w_changed1,*curr_w);
+      Vector2d s_lw1 = std::get<0>(intersection_tuple1);
+      Vector2d s_rw1 = std::get<1>(intersection_tuple1);
+      double px1 = std::get<2>(intersection_tuple1);
+      Vector2d px1_2d = Vector2d(px1, 0);
+
+      // RIGHT
+
+      double curr_w_b0 = curr_w->get_b0();
+      double w_b1 = w.get_b1();
+      double w_d0_2 = (w.get_s() - Vector2d (curr_w_b0,0)).norm();
+      double w_d1_2 = w.get_d1();
+    
+       Window *w_changed2 = new Window(
+            curr_w_b0,
+            w_b1,
+            w_d0_2,
+            w_d1_2,
+            w_sigma,
+            0., w_edge_id, w_v0, w_v1, w_v0id, w_v1id);
+
+      auto intersection_tuple2 = computeIntersection(*curr_w,*w_changed2);
+      Vector2d s_lw2 = std::get<0>(intersection_tuple2);
+      Vector2d s_rw2 = std::get<1>(intersection_tuple2);
+      double px2 = std::get<2>(intersection_tuple2);
+      Vector2d px2_2d = Vector2d(px2, 0);
+
+    
+      w.print();
+      cout << endl;
+      curr_w->print();
+      cout << endl;
+      std::cout<<px1<<px2<<std::endl;
 
       // w totally englobes curr_w
 
@@ -444,7 +508,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
     }
     else if (curr_w->get_b0() > w.get_b1() || w.get_b0() > curr_w->get_b0())
     {
-      // cout << "NO INTERSECTION BETWEEN WINDOWS" << endl;
+      //cout << "NO INTERSECTION BETWEEN WINDOWS" << endl;
     }
   }
 
@@ -1114,8 +1178,8 @@ int main(int argc, char *argv[])
     file = argv[1];
   }
 
-  //ID_VS = 0; ID_VT = 5; // sphere
-  ID_VS = 0; ID_VT = 1902; // gargoyle
+  ID_VS = 0; ID_VT = 5; // sphere
+  //ID_VS = 0; ID_VT = 1902; // gargoyle
   // ID_VS = 1195; ID_VT = 1902; // gargoyle paper
 
   igl::readOFF(file, V1, F1);
