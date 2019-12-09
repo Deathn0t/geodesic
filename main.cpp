@@ -377,7 +377,6 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       cout << endl;
 
       // LEFT
-
       double curr_w_b0 = curr_w->get_b0();
       double w_b1 = w.get_b1();
       double curr_w_d0 = curr_w->get_d0();
