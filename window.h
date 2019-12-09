@@ -64,11 +64,17 @@ public:
 
     double min_geodist();
 
+    double min_geodist(Vector2d inter);
+
     double max_geodist();
+
+    double max_geodist(Vector2d inter);
 
     double geodist_b0();
 
     double geodist_b1();
+
+    double geodist(double x);
 
     void print();
 };

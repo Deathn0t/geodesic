@@ -54,17 +54,21 @@ void Window::set_b0(double new_b0)
     if (abs(new_b0) <= EPS)
     {
         b0 = 0.;
-    } else {
+    }
+    else
+    {
         b0 = new_b0;
     }
 }
 
 void Window::set_b1(double new_b1)
 {
-    if (abs(new_b1-norm_edge()) <= EPS)
+    if (abs(new_b1 - norm_edge()) <= EPS)
     {
         b1 = norm_edge();
-    } else {
+    }
+    else
+    {
         b1 = new_b1;
     }
 }
@@ -183,6 +187,38 @@ double Window::min_geodist()
     return min_dist_w_s;
 }
 
+double Window::min_geodist(Vector2d inter)
+{
+    double min_dist_w_s = 0.0;
+
+    Vector2d w_b0_2d = Vector2d(inter(0), 0);
+    Vector2d w_b1_2d = Vector2d(inter(1), 0);
+
+    Vector2d s_w = get_s();
+    double dist_w_s_b0 = (s_w - w_b0_2d).norm() + get_sigma();
+    double dist_w_s_b1 = (s_w - w_b1_2d).norm() + get_sigma();
+
+    // w
+
+    if (s_w[0] >= inter(0) && s_w[0] <= inter(1))
+    {
+        Vector2d point_on_segment = Vector2d(s_w[0], 0);
+
+        min_dist_w_s = (s_w - point_on_segment).norm() + get_sigma();
+    }
+    else if (s_w[0] < inter(0))
+    {
+        Vector2d b0_2d = Vector2d(inter(0), 0);
+        min_dist_w_s = (s_w - b0_2d).norm() + get_sigma();
+    }
+    else
+    {
+        Vector2d b1_2d = Vector2d(inter(1), 0);
+        min_dist_w_s = (s_w - b1_2d).norm() + get_sigma();
+    }
+    return min_dist_w_s;
+}
+
 double Window::max_geodist()
 {
     double max_dist_w_s = 0.0;
@@ -215,6 +251,38 @@ double Window::max_geodist()
     return max_dist_w_s;
 }
 
+double Window::max_geodist(Vector2d inter)
+{
+    double max_dist_w_s = 0.0;
+
+    Vector2d w_b0_2d = Vector2d(inter(0), 0);
+    Vector2d w_b1_2d = Vector2d(inter(1), 0);
+
+    Vector2d s_w = get_s();
+    double dist_w_s_b0 = (s_w - w_b0_2d).norm() + get_sigma();
+    double dist_w_s_b1 = (s_w - w_b1_2d).norm() + get_sigma();
+
+    // w
+
+    if (s_w[0] >= inter(0) && s_w[0] <= inter(1))
+    {
+        Vector2d point_on_segment = Vector2d(s_w[0], 0);
+
+        max_dist_w_s = max(dist_w_s_b0, dist_w_s_b1);
+    }
+    else if (s_w[0] < inter(0))
+    {
+        Vector2d b0_2d = Vector2d(inter(0), 0);
+        max_dist_w_s = dist_w_s_b1;
+    }
+    else
+    {
+        Vector2d b1_2d = Vector2d(inter(1), 0);
+        max_dist_w_s = dist_w_s_b0;
+    }
+    return max_dist_w_s;
+}
+
 double Window::geodist_b0()
 {
     Vector2d w_b0_2d = Vector2d(get_b0(), 0);
@@ -229,6 +297,15 @@ double Window::geodist_b1()
     Vector2d w_b1_2d = Vector2d(get_b1(), 0);
 
     double dist_w_s_b1 = (get_s() - w_b1_2d).norm() + get_sigma();
+
+    return dist_w_s_b1;
+}
+
+double Window::geodist(double x)
+{
+    Vector2d vx = Vector2d(x, 0);
+
+    double dist_w_s_b1 = (get_s() - vx).norm() + get_sigma();
 
     return dist_w_s_b1;
 }
