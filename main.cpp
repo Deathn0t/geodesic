@@ -275,6 +275,11 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
 
           curr_w->set_d1((curr_w->get_s() - px2d).norm());
           curr_w->set_b0(px2d(0));
+          if (abs(curr_w->get_b1() - curr_w->get_b0()) <= EPS)
+          {
+            lw.remove(curr_w);
+            remove_from_queue(Q, curr_w);
+          }
         }
         else
         {
@@ -308,7 +313,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       }
     }
 
-    else if (w.get_b1() > curr_w->get_b0() && w.get_b1() > curr_w->get_b1()) //&& w.get_b0() <= curr_w->get_b0())
+    else if (curr_w->get_b0() < w.get_b1() && w.get_b0() < curr_w->get_b0() && w.get_b1() < curr_w->get_b1() && abs(curr_w->get_b0() - w.get_b0()) > EPS && abs(curr_w->get_b1() - w.get_b1()) > EPS) //&& w.get_b0() <= curr_w->get_b0())
     {
       cout << " /!\\ CONFLIT 1 /!\\: " << endl;
 
@@ -340,13 +345,9 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         exit(0);
       }
     }
-    else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b1() > w.get_b1()) //&& curr_w->get_b0() <= w.get_b0())
+    else if (w.get_b0() < curr_w->get_b1() && curr_w->get_b0() < w.get_b0() && curr_w->get_b1() < w.get_b1()) //&& curr_w->get_b0() <= w.get_b0())
     {
       cout << " /!\\ CONFLIT 2 /!\\: " << endl;
-      // w.print();
-      // cout << endl;
-      // curr_w->print();
-      // cout << endl;
 
       auto intersection_tuple = computeIntersection(*curr_w, w);
       s_lw = std::get<0>(intersection_tuple);
@@ -368,7 +369,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         cout << "error conflit 2" << endl;
       }
     }
-    else if (curr_w->get_b0() <= w.get_b0() && w.get_b1() <= curr_w->get_b1())
+    else if (curr_w->get_b0() <= w.get_b0() && w.get_b1() <= curr_w->get_b1()) // w inside curr_w
     {
       cout << " /!\\ CONFLIT 3 /!\\: " << endl;
       w.print();
@@ -431,7 +432,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
 
       // cout << "curr_w totally englobes w" << endl;
     }
-    else if (w.get_b0() <= curr_w->get_b0() && curr_w->get_b1() <= w.get_b1())
+    else if (w.get_b0() <= curr_w->get_b0() && curr_w->get_b1() <= w.get_b1()) // curr_w inside w
     {
       cout << " /!\\ CONFLIT 4 /!\\: " << endl;
 
@@ -495,13 +496,24 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
     {
       cout << "NO INTERSECTION BETWEEN WINDOWS" << endl;
     }
+
+    if (abs(curr_w->get_b1() - curr_w->get_b0()) <= EPS)
+    {
+      cout << "case 1" << endl;
+      // exit(0);
+    }
+    else if (abs(w.get_b1() - w.get_b0()) <= EPS)
+    {
+      cout << "case 2" << endl;
+      // exit(0);
+    }
   }
 
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
 
   add_in_Q = add_in_Q && 0. < w.get_d0() && 0. < w.get_d1();
-  add_in_Q = add_in_Q && abs(w.get_b0() - w.get_b1()) > EPS;
-  add_in_lw = add_in_lw && abs(w.get_b0() - w.get_b1()) > EPS;
+  add_in_Q = add_in_Q && (w.get_b1() - w.get_b0()) > EPS;
+  add_in_lw = add_in_lw && (w.get_b1() - w.get_b0()) > EPS;
 
   if (add_in_Q)
   {
