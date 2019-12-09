@@ -4,7 +4,7 @@ Window::Window() {}
 
 Window::Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigma, int f_dir, int f_edge_id, Vector3d &f_v0, Vector3d &f_v1, int f_v0id, int f_v1id)
 {
-    if (f_b0 < 1e-7)
+    if (f_b0 <= EPS)
     {
         b0 = 0.0;
     }
@@ -51,10 +51,14 @@ double Window::get_b1()
 
 void Window::set_b0(double new_b0)
 {
-    if (abs(new_b0) <= EPS)
+    if (new_b0 <= EPS)
     {
         b0 = 0.;
     }
+    // else if (new_b0 - b1 > EPS)
+    // {
+    //     exit(0);
+    // }
     else
     {
         b0 = new_b0;
@@ -67,6 +71,10 @@ void Window::set_b1(double new_b1)
     {
         b1 = norm_edge();
     }
+    // else if (EPS < b0 - new_b1)
+    // {
+    //     exit(0);
+    // }
     else
     {
         b1 = new_b1;

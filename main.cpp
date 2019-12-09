@@ -60,46 +60,6 @@ void remove_from_queue(priority_queue<Window *, vector<Window *>, GreaterThanByD
   }
 }
 
-// bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
-// {
-//   std::cout << "pressed Key: " << key << " " << (unsigned int)key << std::endl;
-
-//   if (key == '1')
-//   {
-
-//     viewer.data().clear(); // Clear should be called before drawing the mesh
-//     viewer.data().set_mesh(V1, F1);
-//     viewer.data().set_colors(Eigen::RowVector3d(0.3, 0.8, 0.3));
-//     // update the mesh (both coordinates and faces)
-//   }
-//   else if (key == '2')
-//   {
-//     cout << "Execute LIB IGL" << endl;
-//     // FROM LIB IGL: https://github.com/libigl/libigl/blob/master/tutorial/206_GeodesicDistance/main.cpp
-//     viewer.data().clear();
-//     Eigen::VectorXi VS, FS, VT, FT;
-//     // The selected vertex is the source
-//     VS.resize(1);
-//     VS << ID_VS;
-//     // All vertices are the targets
-//     VT.setLinSpaced(V1.rows(), 0, V1.rows() - 1);
-//     Eigen::VectorXd d;
-//     igl::exact_geodesic(V1, F1, VS, FS, VT, FT, d);
-//     cout << "LIB IGL: geodesic distance for target vertex " << ID_VT << " -> " << d(ID_VT) << endl;
-//     const double strip_size = 0.05;
-//     // The function should be 1 on each integer coordinate
-//     d = (d / strip_size * igl::PI).array().sin().abs().eval();
-//     // Compute per-vertex colors
-//     Eigen::MatrixXd C;
-//     igl::colormap(igl::COLOR_MAP_TYPE_INFERNO, d, false, C);
-//     // Plot the mesh
-//     viewer.data().set_mesh(V1, F1);
-//     viewer.data().set_colors(C);
-//   }
-
-//   return false;
-// }
-
 void add_window_Q(std::map<int, list<Window *> *> &e2w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
 {
   double b0 = 0.;
@@ -124,11 +84,6 @@ void init_edgeid2windows(std::map<int, list<Window *> *> &e2w, HalfedgeDS &he)
   for (int e_id = 0; e_id < he.sizeOfHalfedges(); e_id++)
   {
     e2w[e_id] = new list<Window *>();
-    // if (e2w.find(e_id) == e2w.end())
-    // {
-    //   e2w[e_id] = new list<Window *>();
-    //   e2w[he.getOpposite(e_id)] = e2w[e_id];
-    // }
   }
 }
 /**
@@ -165,64 +120,6 @@ void init_Q(HalfedgeDS &he, int id_vs, priority_queue<Window *, vector<Window *>
   }
 }
 
-std::tuple<Vector2d, Vector2d, double> computeIntersection(Window &leftWindow, Window &rightWindow)
-{
-
-  double intervalMin, intervalMax;
-  intervalMin = rightWindow.get_b0();
-  intervalMax = leftWindow.get_b1();
-
-  double alpha, beta, gamma, A, B, C;
-  Vector2d s_lw, s_rw;
-  s_lw = leftWindow.get_s();
-  s_rw = rightWindow.get_s();
-  alpha = s_rw[0] - s_lw[0];
-  beta = rightWindow.get_sigma() - leftWindow.get_sigma();
-  gamma = (s_lw.norm() * s_lw.norm()) - (s_rw.norm() * s_rw.norm()) - (beta * beta);
-  A = (alpha * alpha) - (beta * beta);
-  B = (gamma * alpha) + (2 * s_rw[0] * beta * beta);
-  C = (1.0 / 4.0) * (gamma * gamma) - (s_rw.norm() * s_rw.norm() * beta * beta);
-
-  double px1, px2, px;
-  double delta = (B * B) - (4 * A * C);
-
-  // cout << "delta: " << delta << endl;
-  if (delta > EPS)
-  {
-    px1 = (-B - sqrt(delta)) / (2 * A);
-    px2 = (-B + sqrt(delta)) / (2 * A);
-
-    if (intervalMin <= px1 && px1 <= intervalMax)
-    {
-      px = px1;
-    }
-    else
-    {
-      px = px2;
-    }
-  }
-  else if (-EPS <= delta && delta <= EPS)
-  {
-    px = -B / (2 * A);
-  }
-  else
-  {
-    // cout << "IMPOSSIBLE BUT NO SOLUTION" << endl;
-  }
-
-  return std::make_tuple(s_lw, s_rw, px);
-}
-
-bool intersect(Window &w0, Window &w1)
-{
-  double a0, a1, b0, b1;
-  a0 = w0.get_b0();
-  a1 = w1.get_b0();
-  b0 = w0.get_b1();
-  b1 = w1.get_b1();
-  return ((a1 < b0 && a0 < b1) || (a0 < b1 && a1 < b0));
-}
-
 Vector2d range_intersect(Window &w0, Window &w1)
 {
   double a0, a1, b0, b1, mini, maxi;
@@ -249,6 +146,70 @@ Vector2d range_intersect(Window &w0, Window &w1)
   return Vector2d(mini, maxi); //((a1 < b0 && a0 < b1) || (a0 < b1 && a1 < b0));
 }
 
+std::tuple<Vector2d, Vector2d, double> point_equidist(Window &leftWindow, Window &rightWindow, Vector2d inter)
+{
+
+  double alpha, beta, gamma, A, B, C;
+  Vector2d s_lw, s_rw;
+  alpha = s_rw[0] - s_lw[0];
+  beta = rightWindow.get_sigma() - leftWindow.get_sigma();
+  gamma = (s_lw.norm() * s_lw.norm()) - (s_rw.norm() * s_rw.norm()) - (beta * beta);
+  A = (alpha * alpha) - (beta * beta);
+  B = (gamma * alpha) + (2 * s_rw[0] * beta * beta);
+  C = (1.0 / 4.0) * (gamma * gamma) - (s_rw.norm() * s_rw.norm() * beta * beta);
+
+  double px1, px2, px;
+  double delta = (B * B) - (4 * A * C);
+
+  // cout << "delta: " << delta << endl;
+  if (abs(delta) <= EPS)
+  {
+    px = -B / (2 * A);
+  }
+  else if (delta > 0)
+  {
+    px1 = (-B - sqrt(delta)) / (2 * A);
+    px2 = (-B + sqrt(delta)) / (2 * A);
+    if (inter(0) <= px1 && px1 <= inter(1))
+    {
+      px = px1;
+    }
+    else
+    {
+      px = px2;
+    }
+  }
+  else
+  {
+    cout << "IMPOSSIBLE BUT NO SOLUTION" << endl;
+    cout << "A=" << A << endl;
+    cout << "B=" << B << endl;
+    cout << "C=" << C << endl;
+    cout << "leftWindow: " << endl;
+    leftWindow.print();
+    cout << endl;
+    cout << "rightWindow: " << endl;
+    rightWindow.print();
+    cout << endl;
+    // exit(0);
+  }
+
+  px = max(px, inter(0));
+  px = min(px, inter(1));
+
+  return std::make_tuple(s_lw, s_rw, px);
+}
+
+bool intersect(Window &w0, Window &w1)
+{
+  double a0, a1, b0, b1;
+  a0 = w0.get_b0();
+  a1 = w1.get_b0();
+  b0 = w0.get_b1();
+  b1 = w1.get_b1();
+  return ((a1 < b0 && a0 < b1) || (a0 < b1 && a1 < b0));
+}
+
 void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
 {
   list<Window *> &lw = *e2w[w.get_edge_id()];
@@ -261,13 +222,14 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
 
   Window *curr_w;
   // CHECK IF INTERSECTION:
+  cout << "start loop" << endl;
   for (Window *curr_w : copy_lw)
   {
     // 0 => new window, 1=> one window in list
-
-    if (intersect(w, *curr_w))
+    Vector2d inter = range_intersect(w, *curr_w);
+    if (intersect(w, *curr_w) && abs(inter(0) - inter(1)) > EPS)
     {
-      Vector2d inter = range_intersect(w, *curr_w);
+      cout << " if 1" << endl;
 
       double min_dist_w_s = w.min_geodist(inter);
       double max_dist_w_s = w.max_geodist(inter);
@@ -276,14 +238,24 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
 
       if (max_dist_w_s <= min_dist_curr_w_s)
       {
+        cout << "sub if 1" << endl;
         // w is always better than curr_w, replace curr_w par w
-        if (w.get_b1() > curr_w->get_b0())
+        if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0() + EPS)
         {
+          cout << "#1" << endl;
+          cout << "w: " << endl;
+          w.print();
+          cout << endl;
+          cout << "curr_w: " << endl;
+          curr_w->print();
+          cout << endl;
+          cout << "inter: " << inter << endl;
           // w is the left window
           curr_w->set_d0((curr_w->get_s() - Vector2d(w.get_b1(), 0)).norm());
           curr_w->set_b0(w.get_b1());
+          cout << "#2" << endl;
         }
-        else
+        else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0() + EPS)
         {
           // curr_w is the left window
           curr_w->set_d1((curr_w->get_s() - Vector2d(w.get_b0(), 0)).norm());
@@ -292,65 +264,105 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
       }
       else if (max_dist_curr_w_s <= min_dist_w_s)
       {
+        cout << "sub if 2" << endl;
         // curr_w is always better than w
-        if (w.get_b1() > curr_w->get_b0())
+        if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0() + EPS)
         {
           // w is the left window
+          cout << "### 1" << endl;
+          cout << "w: " << endl;
+          w.print();
+          cout << endl;
+          cout << "curr_w: " << endl;
+          curr_w->print();
+          cout << endl;
           w.set_d1((w.get_s() - Vector2d(curr_w->get_b0(), 0)).norm());
           w.set_b1(curr_w->get_b0());
+          cout << "### 2" << endl;
         }
-        else
+        else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0() + EPS)
         {
           // curr_w is the left window
+          cout << "### 3" << endl;
           w.set_d0((w.get_s() - Vector2d(curr_w->get_b1(), 0)).norm());
           w.set_b0(curr_w->get_b1());
+          cout << "### 4" << endl;
         }
       }
       else
       {
-        auto intersection_tuple = computeIntersection(w, *curr_w);
+        cout << "sub else" << endl;
+        auto intersection_tuple = point_equidist(w, *curr_w, inter);
         double px;
         Vector2d s_lw, s_rw, px2d;
         s_lw = std::get<0>(intersection_tuple);
         s_rw = std::get<1>(intersection_tuple);
         px = std::get<2>(intersection_tuple);
-        px2d = Vector2d(px, 0);
+        cout << "w: " << endl;
+        w.print();
+        cout << endl;
+        cout << "curr_w: " << endl;
+        curr_w->print();
+        cout << endl;
+        cout << "min_dist_w_s: " << min_dist_w_s << endl;
+        cout << "max_dist_w_s: : " << max_dist_w_s << endl;
+        cout << "min_dist_curr_w_s: " << min_dist_curr_w_s << endl;
+        cout << "max_dist_curr_w_s: " << max_dist_curr_w_s << endl;
+        cout << "inter: " << endl
+             << inter << endl;
+        cout << "px: " << px << endl;
 
-        if (w.get_b1() > curr_w->get_b0())
+        if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0() + EPS)
         {
           // w is the left window
+          cout << "if" << endl;
           w.set_d1((w.get_s() - px2d).norm());
           w.set_b1(px);
+          cout << " ##1 " << endl;
 
           curr_w->set_d0((curr_w->get_s() - px2d).norm());
           curr_w->set_b0(px);
+          cout << " ##2 " << endl;
         }
-        else
+        else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0() + EPS)
         {
           // curr_w is the left window
+          cout << "else if" << endl;
           w.set_d0((w.get_s() - px2d).norm());
           w.set_b0(px);
 
           curr_w->set_d1((curr_w->get_s() - px2d).norm());
           curr_w->set_b1(px);
         }
-      }
-
-      if (((curr_w->get_b1() - curr_w->get_b0()) <= EPS))
-      {
-        lw.remove(curr_w);
-        // remove_from_queue(Q, curr_w);
-      }
-      else if (curr_w->get_d0() <= EPS || curr_w->get_d1() <= EPS)
-      {
-        // remove_from_queue(Q, curr_w);
+        else
+        {
+          cout << "dernier cas" << endl;
+        }
       }
     }
+    else
+    {
+      cout << "else 1" << endl;
+    }
+    if ((abs(curr_w->get_b1() - curr_w->get_b0()) <= EPS))
+    {
+      lw.remove(curr_w);
+      // remove_from_queue(Q, curr_w);
+    }
+    else if (curr_w->get_d0() <= EPS || curr_w->get_d1() <= EPS)
+    {
+      // remove_from_queue(Q, curr_w);
+    }
   }
+
+  // w.print();
+  // cout << endl;
+  // cout << "w.get_d0=" << w.get_d0() << endl;
+  // cout << "w.get_d1=" << w.get_d1() << endl;
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
 
   add_in_Q = add_in_Q && 0. < w.get_d0() && 0. < w.get_d1();
-  add_in_Q = add_in_Q && (w.get_b1() - w.get_b0()) > EPS;
+  add_in_Q = add_in_Q && abs(w.get_b1() - w.get_b0()) > EPS;
   add_in_lw = add_in_lw && (w.get_b1() - w.get_b0()) > EPS;
 
   if (add_in_Q)
@@ -420,13 +432,39 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
   int_l1_lp0p2 = intersect(lp0p2, l1);
   int_l1_lp2p1 = intersect(lp2p1, l1);
 
+  if (isnan(s(1)))
+  {
+    // cout << endl
+    //      << endl;
+    // cout << "IF -> ";
+    // w.print();
+    // cout << "s: " << endl;
+    // cout << s << endl;
+    // cout
+    //     << "l0: " << endl
+    //     << l0 << endl;
+    // cout << "l1: " << endl
+    //      << l1 << endl;
+
+    // cout << "int_l0_lp0p2: " << endl
+    //      << int_l0_lp0p2 << endl;
+    // cout << "int_l1_lp0p2: " << endl
+    //      << int_l1_lp0p2 << endl;
+    // cout << "int_l0_lp2p1: " << endl
+    //      << int_l0_lp2p1 << endl;
+    // cout << "int_l1_lp2p1: " << endl
+    //      << int_l1_lp2p1 << endl;
+    e2w[w.get_edge_id()]->remove(p_w);
+    return;
+  }
+
   Window *pw;
   // filter different cases
-  if (w.get_b0() < EPS || ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS)
+  if (w.get_b0() <= EPS || ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) <= EPS)
   {
 
     // the window w correspond to the whole edge
-    if (w.get_b0() < EPS && ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS) // case I - 1
+    if (w.get_b0() <= EPS && ((w.get_v1() - w.get_v0()).norm() - w.get_b1()) <= EPS) // case I - 1
     {
 
       // case where the whole face is inside the pencile of light, we create 2 windows
@@ -525,7 +563,7 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
         // exit(0);
       }
     }
-    else if (w.get_b0() < EPS) // case II
+    else if (w.get_b0() <= EPS) // case II
     {
       if (!point_in_range(int_l0_lp2p1, p22d, p12d) && point_in_range(int_l1_lp2p1, p22d, p12d)) // case II - 1
       {
@@ -597,10 +635,36 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
       else //! this case should not happen
       {
         cout << "error case II" << endl;
+        w.print();
+        cout << "s: " << endl;
+        cout << s << endl;
+        cout << "l0: " << endl
+             << l0 << endl;
+        cout << "l1: " << endl
+             << l1 << endl;
+
+        cout << "p02d: " << endl
+             << p02d << endl;
+        cout << "p12d: " << endl
+             << p12d << endl;
+        cout << "p22d: " << endl
+             << p22d << endl;
+
+        cout << "int_l0_lp0p2: " << endl
+             << int_l0_lp0p2 << endl;
+        cout << "int_l1_lp0p2: " << endl
+             << int_l1_lp0p2 << endl;
+        cout << "int_l0_lp2p1: " << endl
+             << int_l0_lp2p1 << endl;
+        cout << "int_l1_lp2p1: " << endl
+             << int_l1_lp2p1 << endl;
+
+        cout << "bool 1: " << point_in_range(int_l0_lp2p1, p22d, p12d) << endl;
+        cout << "bool 2: " << point_in_range(int_l1_lp2p1, p22d, p12d) << endl;
         // exit(0);
       }
     }
-    else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) < EPS) // case II SYM
+    else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) <= EPS) // case II SYM
     {
       if (!point_in_range(int_l1_lp0p2, p02d, p22d) && point_in_range(int_l0_lp0p2, p02d, p22d)) // case II SYM - 1
       {
@@ -672,6 +736,32 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
       else //! this case should not happen
       {
         std::cout << "error case II SYM" << std::endl;
+        w.print();
+        cout << "s: " << endl;
+        cout << s << endl;
+        cout << "l0: " << endl
+             << l0 << endl;
+        cout << "l1: " << endl
+             << l1 << endl;
+
+        cout << "p02d: " << endl
+             << p02d << endl;
+        cout << "p12d: " << endl
+             << p12d << endl;
+        cout << "p22d: " << endl
+             << p22d << endl;
+
+        cout << "int_l0_lp0p2: " << endl
+             << int_l0_lp0p2 << endl;
+        cout << "int_l1_lp0p2: " << endl
+             << int_l1_lp0p2 << endl;
+        cout << "int_l0_lp2p1: " << endl
+             << int_l0_lp2p1 << endl;
+        cout << "int_l1_lp2p1: " << endl
+             << int_l1_lp2p1 << endl;
+
+        cout << "bool 1: " << point_in_range(int_l0_lp2p1, p22d, p12d) << endl;
+        cout << "bool 2: " << point_in_range(int_l1_lp2p1, p22d, p12d) << endl;
         // exit(0);
       }
     }
@@ -732,6 +822,7 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
     else //! this case should not happen
     {
       std::cout << "error IV" << std::endl;
+      // exit(0);
     }
   }
 }

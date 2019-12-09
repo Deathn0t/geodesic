@@ -17,7 +17,7 @@ Vector2d compute_line(Vector2d u, Vector2d v)
 {
     Vector2d l;
     l(0) = (u(1) - v(1)) / (u(0) - v(0));
-    l(1) = u(1) - l(0);
+    l(1) = u(1) - l(0) * u(0);
     return l;
 }
 /**
@@ -48,25 +48,25 @@ bool point_in_range(Vector2d c, Vector2d a, Vector2d b)
         y1 = b(1);
     }
 
-    if (x0 <= EPS)
-    {
-        x0 = 0.0;
-    }
+    // if (x0 <= EPS)
+    // {
+    //     x0 = 0.0;
+    // }
 
-    if (x1 <= EPS)
-    {
-        x1 = 0.0;
-    }
+    // if (x1 <= EPS)
+    // {
+    //     x1 = 0.0;
+    // }
 
-    if (y0 <= EPS)
-    {
-        y0 = 0.0;
-    }
+    // if (y0 <= EPS)
+    // {
+    //     y0 = 0.0;
+    // }
 
-    if (y1 <= EPS)
-    {
-        y1 = 0.0;
-    }
+    // if (y1 <= EPS)
+    // {
+    //     y1 = 0.0;
+    // }
 
-    return (x0 <= c(0) && c(0) <= x1 && y0 <= c(1) && c(1) <= y1);
+    return (x0 <= c(0) + EPS && c(0) - EPS <= x1 && y0 <= c(1) + EPS && c(1) - EPS <= y1);
 }
