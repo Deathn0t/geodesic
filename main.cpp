@@ -212,6 +212,9 @@ bool intersect(Window &w0, Window &w1)
 
 void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
 {
+  cout << "PUSH: " << endl;
+  w.print();
+  cout << endl;
   list<Window *> &lw = *e2w[w.get_edge_id()];
   list<Window *> copy_lw = *e2w[w.get_edge_id()];
   bool add_in_Q = true;
@@ -284,6 +287,12 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         {
           // curr_w is the left window
           cout << "### 3" << endl;
+          cout << "w: " << endl;
+          w.print();
+          cout << endl;
+          cout << "curr_w: " << endl;
+          curr_w->print();
+          cout << endl;
           w.set_d0((w.get_s() - Vector2d(curr_w->get_b1(), 0)).norm());
           w.set_b0(curr_w->get_b1());
           cout << "### 4" << endl;
@@ -457,6 +466,36 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
     e2w[w.get_edge_id()]->remove(p_w);
     return;
   }
+  else
+  {
+    cout << endl
+         << endl;
+    cout << "ELSE -> ";
+    w.print();
+    cout << endl;
+    cout << "p02d: " << endl
+         << p02d << endl;
+    cout << "p12d: " << endl
+         << p12d << endl;
+    cout << "p22d: " << endl
+         << p22d << endl;
+    cout << "s: " << endl;
+    cout << s << endl;
+    cout
+        << "l0: " << endl
+        << l0 << endl;
+    cout << "l1: " << endl
+         << l1 << endl;
+
+    cout << "int_l0_lp0p2: " << endl
+         << int_l0_lp0p2 << endl;
+    cout << "int_l1_lp0p2: " << endl
+         << int_l1_lp0p2 << endl;
+    cout << "int_l0_lp2p1: " << endl
+         << int_l0_lp2p1 << endl;
+    cout << "int_l1_lp2p1: " << endl
+         << int_l1_lp2p1 << endl;
+  }
 
   Window *pw;
   // filter different cases
@@ -560,7 +599,7 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
       else //! this case should not happen
       {
         std::cout << "error case I" << std::endl;
-        // exit(0);
+        exit(0);
       }
     }
     else if (w.get_b0() <= EPS) // case II
@@ -661,13 +700,15 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
 
         cout << "bool 1: " << point_in_range(int_l0_lp2p1, p22d, p12d) << endl;
         cout << "bool 2: " << point_in_range(int_l1_lp2p1, p22d, p12d) << endl;
-        // exit(0);
+        exit(0);
       }
     }
     else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) <= EPS) // case II SYM
     {
+      cout << "else if case II SYM" << endl;
       if (!point_in_range(int_l1_lp0p2, p02d, p22d) && point_in_range(int_l0_lp0p2, p02d, p22d)) // case II SYM - 1
       {
+        cout << "else if case II SYM - 1" << endl;
         pw = new Window(
             0,
             (p22d - p12d).norm(),
@@ -690,6 +731,7 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
       }
       else if (point_in_range(int_l0_lp0p2, p02d, p22d) && point_in_range(int_l1_lp0p2, p02d, p22d)) // case II SYM - 2
       {
+        cout << "else if case II SYM - 2" << endl;
         pw = new Window(
             int_l0_lp0p2.norm(),
             int_l1_lp0p2.norm(),
@@ -723,8 +765,9 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
       }
       else if (point_in_range(int_l0_lp2p1, p22d, p12d)) // case II SYM - 3
       {
+        cout << "else if case II SYM - 3" << endl;
         pw = new Window(
-            int_l0_lp2p1.norm(),
+            (p22d - int_l0_lp2p1).norm(),
             (p22d - p12d).norm(),
             (s - int_l0_lp2p1).norm(),
             w.get_d1(),
@@ -762,13 +805,13 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
 
         cout << "bool 1: " << point_in_range(int_l0_lp2p1, p22d, p12d) << endl;
         cout << "bool 2: " << point_in_range(int_l1_lp2p1, p22d, p12d) << endl;
-        // exit(0);
+        exit(0);
       }
     }
     else //! this case should not happen
     {
       std::cout << "error I - II - II SYM" << std::endl;
-      // exit(0);
+      exit(0);
     }
   }
   else //case IV
@@ -822,7 +865,7 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
     else //! this case should not happen
     {
       std::cout << "error IV" << std::endl;
-      // exit(0);
+      exit(0);
     }
   }
 }
