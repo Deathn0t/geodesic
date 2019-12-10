@@ -841,9 +841,6 @@ map<int, list<Window *> *> *exact_geodesics(HalfedgeDS &he, int id_vs)
 
   // initialize the queue Q with a window for each edge adjacent
   // to source: source_v_t
-  // std::queue<Window *> Q; // Q.push(..); Q.top(); Q.pop();
-  // auto cmp = [](Window *l, Window *r) { return l->get_sigma() < r->get_sigma(); };
-  // priority_queue<Window *, vector<Window *>, decltype(greaterw)> Q(greaterw);
   priority_queue<Window *, vector<Window *>, GreaterThanByDist> Q;
   map<int, list<Window *> *> *e2w = new map<int, list<Window *> *>(); // map edge id to windows
 
@@ -867,7 +864,7 @@ map<int, list<Window *> *> *exact_geodesics(HalfedgeDS &he, int id_vs)
     // propagate selected window
     propagate_window(he, cur_w, Q, *e2w);
 
-    if (it > 200000)
+    if (it > 100000)
     {
       cout << "break after " << it << "iterations" << endl;
       break;
@@ -875,14 +872,6 @@ map<int, list<Window *> *> *exact_geodesics(HalfedgeDS &he, int id_vs)
     else if (it % 10000 == 0)
     {
       cout << "it: " << it << endl;
-    }
-  }
-
-  for (map<int, list<Window *> *>::iterator it = e2w->begin(); it != e2w->end(); ++it)
-  {
-    for (Window *pw_i : *(it->second))
-    {
-      colorWindow(VIEWER, *pw_i, RowVector3d(1, 0, 0), false, false);
     }
   }
 
@@ -1010,7 +999,6 @@ double compute_geodist(int v, HalfedgeDS &he, map<int, list<Window *> *> &e2w)
     acc++;
   }
 
-  cout << "PERSO: geodesic distance for target vertex " << ID_VT << " -> " << best_geodist << endl;
   return best_geodist;
 }
 
@@ -1030,16 +1018,47 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
 
   if (key == '1')
   {
-
     viewer.data().clear();
     map<int, list<Window *> *> *e2w = exact_geodesics(*HE, ID_VS);
 
-    compute_geodist(ID_VT, *HE, *e2w);
+    double d = compute_geodist(ID_VT, *HE, *e2w);
+    cout << "PERSO(1): geodesic distance for target vertex " << ID_VT << " -> " << d << endl;
+
     set_meshes(viewer, V1, F1);
+    for (map<int, list<Window *> *>::iterator it = e2w->begin(); it != e2w->end(); ++it)
+    {
+      for (Window *pw_i : *(it->second))
+      {
+        colorWindow(VIEWER, *pw_i, RowVector3d(1, 0, 0), false, false);
+      }
+    }
+    show_source_target(viewer);
+  }
+  else if (key == '2')
+  {
+    viewer.data().clear();
+    map<int, list<Window *> *> *e2w = exact_geodesics(*HE, ID_VS);
+
+    Eigen::VectorXd d(V1.rows(), 1);
+    for (int vt_i = 0; vt_i < V1.rows(); vt_i++)
+    {
+      d(vt_i, 0) = compute_geodist(vt_i, *HE, *e2w);
+      cout << "V " << vt_i << ", geodist= " << d(vt_i, 0) << endl;
+    }
+    cout << "PERSO(2): geodesic distance for target vertex " << ID_VT << " -> " << d(ID_VT, 0) << endl;
+    const double strip_size = 0.05;
+    // The function should be 1 on each integer coordinate
+    d = (d / strip_size * igl::PI).array().sin().abs().eval();
+    // Compute per-vertex colors
+    Eigen::MatrixXd C;
+    igl::colormap(igl::COLOR_MAP_TYPE_INFERNO, d, false, C);
+    // set_meshes(viewer, V1, F1);
+    viewer.data().set_mesh(V1, F1);
+    viewer.data().set_colors(C);
     show_source_target(viewer);
     // update the mesh (both coordinates and faces)
   }
-  else if (key == '2')
+  else if (key == '3')
   {
     cout << "Execute LIB IGL" << endl;
     // FROM LIB IGL: https://github.com/libigl/libigl/blob/master/tutorial/206_GeodesicDistance/main.cpp
@@ -1096,8 +1115,11 @@ int main(int argc, char *argv[])
 
   ID_VS = 0;
   ID_VT = 5; // sphere
+
   //ID_VS = 0; ID_VT = 1902; // gargoyle
-  // ID_VS = 1195; ID_VT = 1902; // gargoyle paper
+
+  // ID_VS = 1195;
+  // ID_VT = 1902; // gargoyle paper
 
   igl::readOFF(file, V1, F1);
   igl::opengl::glfw::Viewer &viewer = VIEWER;
