@@ -28,6 +28,8 @@ public:
 
     Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigma, int f_dir, int f_edge_id, Vector3d &f_v0, Vector3d &f_v1, int f_v0id, int f_v1id);
 
+    Window(Window &cw);
+
     int get_edge_id();
 
     int get_dir();

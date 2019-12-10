@@ -162,7 +162,7 @@ std::tuple<Vector2d, Vector2d, double> point_equidist(Window &leftWindow, Window
   double delta = (B * B) - (4 * A * C);
 
   // cout << "delta: " << delta << endl;
-  if (0 <= delta && delta <= EPS )
+  if (0 <= delta && delta <= EPS)
   {
     px = -B / (2 * A);
   }
@@ -193,8 +193,6 @@ std::tuple<Vector2d, Vector2d, double> point_equidist(Window &leftWindow, Window
     cout << endl;
     // exit(0);
   }
-  
-
 
   px = max(px, inter(0));
   px = min(px, inter(1));
@@ -220,6 +218,7 @@ bool intersect(Window &w0, Window &w1)
 
 void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
 {
+
   cout << "PUSH: " << endl;
   w.print();
   cout << endl;
@@ -253,25 +252,26 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         // w is always better than curr_w, replace curr_w par w
         if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0() + EPS)
         {
-          cout << "#1" << endl;
-          cout << "w: " << endl;
-          w.print();
-          cout << endl;
-          cout << "curr_w: " << endl;
-          curr_w->print();
-          cout << endl;
-          cout << "inter: " << inter << endl;
-          // w is the left window
-          curr_w->set_d0((curr_w->get_s() - Vector2d(w.get_b1(), 0)).norm());
-          std::cout<<"B0 - 1"<<std::endl;
-          cout << "w: " << endl;
-          w.print();
-          cout << endl;
-          cout << "curr_w: " << endl;
-          curr_w->print();
-          cout << endl;
-          curr_w->set_b0(w.get_b1());
-          cout << "#2" << endl;
+          if ((w.get_b0() <= curr_w->get_b0() || abs(w.get_b0() - curr_w->get_b0()) <= EPS) && curr_w->get_b1() <= w.get_b1())
+          {
+            lw.remove(curr_w);
+          }
+          else
+          {
+            cout << "#1" << endl;
+            cout << "w: " << endl;
+            w.print();
+            cout << endl;
+            cout << "curr_w: " << endl;
+            curr_w->print();
+            cout << endl;
+            cout << "inter: " << inter << endl;
+            cout << "bool 1: " << (w.get_b0() <= curr_w->get_b0()) << endl;
+            // w is the left window
+            curr_w->set_d0((curr_w->get_s() - Vector2d(w.get_b1(), 0)).norm());
+            curr_w->set_b0(w.get_b1());
+            cout << "#2" << endl;
+          }
         }
         else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0() + EPS)
         {
@@ -280,6 +280,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
           curr_w->set_b1(w.get_b0());
         }
       }
+
       else if (max_dist_curr_w_s <= min_dist_w_s)
       {
         cout << "sub if 2" << endl;
@@ -301,23 +302,30 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         else if (curr_w->get_b1() > w.get_b0() && curr_w->get_b0() < w.get_b0() + EPS)
         {
           // curr_w is the left window
-          cout << "### 3" << endl;
-          cout << "w: " << endl;
-          w.print();
-          cout << endl;
-          cout << "curr_w: " << endl;
-          curr_w->print();
-          cout << endl;
-          w.set_d0((w.get_s() - Vector2d(curr_w->get_b1(), 0)).norm());
-          std::cout<<"B0 - 2"<<std::endl;
-          cout << "w: " << endl;
-          w.print();
-          cout << endl;
-          cout << "curr_w: " << endl;
-          curr_w->print();
-          cout << endl;
-          w.set_b0(curr_w->get_b1());
-          cout << "### 4" << endl;
+          if ((curr_w->get_b0() <= w.get_b0() || abs(w.get_b0() - curr_w->get_b0()) <= EPS) && w.get_b1() <= curr_w->get_b1())
+          {
+            add_in_lw = false;
+          }
+          else
+          {
+            cout << "### 3" << endl;
+            cout << "w: " << endl;
+            w.print();
+            cout << endl;
+            cout << "curr_w: " << endl;
+            curr_w->print();
+            cout << endl;
+            w.set_d0((w.get_s() - Vector2d(curr_w->get_b1(), 0)).norm());
+            std::cout << "B0 - 2" << std::endl;
+            cout << "w: " << endl;
+            w.print();
+            cout << endl;
+            cout << "curr_w: " << endl;
+            curr_w->print();
+            cout << endl;
+            w.set_b0(curr_w->get_b1());
+            cout << "### 4" << endl;
+          }
         }
       }
       else
@@ -342,28 +350,28 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         cout << "inter: " << endl
              << inter << endl;
         cout << "px: " << px << endl;
-        
+
         if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0() + EPS)
         {
           // w is the left window
-          std::cout<<"B0 - 31"<<std::endl;
+          std::cout << "B0 - 31" << std::endl;
           cout << "w: " << endl;
           w.print();
           cout << endl;
           cout << "curr_w: " << endl;
           curr_w->print();
           cout << endl;
-          cout<<"s  w"<< w.get_s() <<std::endl;
-          cout<<"s  curr_w "<<curr_w->get_s() <<std::endl;
+          cout << "s  w" << w.get_s() << std::endl;
+          cout << "s  curr_w " << curr_w->get_s() << std::endl;
           cout << "if" << endl;
-        
+
           w.set_d1((w.get_s() - px2d).norm());
-          
+
           w.set_b1(px);
           cout << " ##1 " << endl;
 
           curr_w->set_d0((curr_w->get_s() - px2d).norm());
-           std::cout<<"B0 - 32"<<std::endl;
+          std::cout << "B0 - 32" << std::endl;
           cout << "w: " << endl;
           w.print();
           cout << endl;
@@ -378,7 +386,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
           // curr_w is the left window
           cout << "else if" << endl;
           w.set_d0((w.get_s() - px2d).norm());
-          std::cout<<"B0 - 4"<<std::endl;
+          std::cout << "B0 - 4" << std::endl;
           cout << "w: " << endl;
           w.print();
           cout << endl;
@@ -411,10 +419,6 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
     }
   }
 
-  // w.print();
-  // cout << endl;
-  // cout << "w.get_d0=" << w.get_d0() << endl;
-  // cout << "w.get_d1=" << w.get_d1() << endl;
   // COMPARE DISTANCE AND DECIDE WHETHER THE WINDOW SHOULD BE ADDED
 
   add_in_Q = add_in_Q && 0. < w.get_d0() && 0. < w.get_d1();

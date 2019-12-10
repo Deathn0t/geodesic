@@ -7,7 +7,7 @@ Window::Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigm
     if (f_b0 > f_b1)
     {
         cout << "exit constructor" << endl;
-        // exit(0);
+        exit(0);
     }
 
     if (f_b0 <= EPS)
@@ -20,12 +20,6 @@ Window::Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigm
     }
     b1 = f_b1;
     d0 = f_d0;
-
-    if (f_b0>f_b1)
-    {
-        std::cout<<"B0>B1"<<std::endl;
-        exit(0);
-    }
     d1 = f_d1;
     sigma = f_sigma;
     dir = f_dir;
@@ -34,6 +28,21 @@ Window::Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigm
     v1 = f_v1;
     v0id = f_v0id;
     v1id = f_v1id;
+}
+
+Window::Window(Window &cw)
+{
+    b0 = cw.get_b0();
+    b1 = cw.get_b1();
+    d0 = cw.get_d0();
+    d1 = cw.get_d1();
+    sigma = cw.get_sigma();
+    dir = cw.get_dir();
+    edge_id = cw.get_edge_id();
+    v0 = cw.get_v0();
+    v1 = cw.get_v1();
+    v0id = cw.get_v0id();
+    v1id = cw.get_v1id();
 }
 
 int Window::get_edge_id()
@@ -70,7 +79,7 @@ void Window::set_b0(double new_b0)
     else if (new_b0 - b1 > EPS)
     {
         cout << "exit set_b0" << endl;
-        // exit(0);
+        exit(0);
     }
     else
     {
@@ -87,7 +96,7 @@ void Window::set_b1(double new_b1)
     else if (EPS < b0 - new_b1)
     {
         cout << "exit set_b1" << endl;
-        // exit(0);
+        exit(0);
     }
     else
     {
