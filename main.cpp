@@ -15,6 +15,7 @@
 #include "geoutils.h"
 #include "visutils.h"
 #include "window.h"
+#include "priority_queue.h"
 
 using namespace Eigen;
 using namespace std;
@@ -25,42 +26,42 @@ igl::opengl::glfw::Viewer VIEWER;
 int ID_VS, ID_VT;
 HalfedgeDS *HE;
 
-struct GreaterThanByDist
-{
-  bool operator()(Window *w1, Window *w2) const
-  {
-    // return w1->get_sigma() > w2->get_sigma();
-    return w1->min_geodist() > w2->min_geodist();
-  }
-};
+// struct GreaterThanByDist
+// {
+//   bool operator()(Window *w1, Window *w2) const
+//   {
+//     // return w1->get_sigma() > w2->get_sigma();
+//     return w1->min_geodist() > w2->min_geodist();
+//   }
+// };
 
-void remove_from_queue(priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, Window *pw)
-{
-  std::queue<Window *> q;
-  Window *curr_pw;
-  for (int i = 0; i < Q.size(); i++)
-  {
-    curr_pw = Q.top();
-    Q.pop();
+// void remove_from_queue(priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, Window *pw)
+// {
+//   std::queue<Window *> q;
+//   Window *curr_pw;
+//   for (int i = 0; i < Q.size(); i++)
+//   {
+//     curr_pw = Q.top();
+//     Q.pop();
 
-    if (curr_pw == pw)
-    {
-      break;
-    }
-    else
-    {
-      q.push(curr_pw);
-    }
-  }
-  for (int i = 0; i < q.size(); i++)
-  {
-    curr_pw = q.front();
-    q.pop();
-    Q.push(curr_pw);
-  }
-}
+//     if (curr_pw == pw)
+//     {
+//       break;
+//     }
+//     else
+//     {
+//       q.push(curr_pw);
+//     }
+//   }
+//   for (int i = 0; i < q.size(); i++)
+//   {
+//     curr_pw = q.front();
+//     q.pop();
+//     Q.push(curr_pw);
+//   }
+// }
 
-void add_window_Q(std::map<int, list<Window *> *> &e2w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
+void add_window_Q(std::map<int, list<Window *> *> &e2w, PriorityQueue &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
 {
   double b0 = 0.;
   double b1 = (v1 - v0).norm();
@@ -89,7 +90,7 @@ void init_edgeid2windows(std::map<int, list<Window *> *> &e2w, HalfedgeDS &he)
 /**
  * Initialize a queue Q with a window for each edge adjacent to source vs.
  */
-void init_Q(HalfedgeDS &he, int id_vs, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, std::map<int, list<Window *> *> &e2w)
+void init_Q(HalfedgeDS &he, int id_vs, PriorityQueue &Q, std::map<int, list<Window *> *> &e2w)
 {
 
   Vector3d vs, v_init, v_b0, v_b1;
@@ -216,7 +217,7 @@ bool intersect(Window &w0, Window &w1)
   return ((a1 < b0 && a0 < b1) || (a0 < b1 && a1 < b0));
 }
 
-void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
+void push_window(Window &w, PriorityQueue &Q, map<int, list<Window *> *> &e2w)
 {
 
   cout << "PUSH: " << endl;
@@ -408,14 +409,16 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
     {
       cout << "else 1" << endl;
     }
-    if ((abs(curr_w->get_b1() - curr_w->get_b0()) <= EPS))
+
+    if ((abs(curr_w->get_b1() - curr_w->get_b0()) <= EPS) || curr_w->get_b1() < curr_w->get_b0())
     {
       lw.remove(curr_w);
-      // remove_from_queue(Q, curr_w);
+      Q.remove(curr_w);
     }
     else if (curr_w->get_d0() <= EPS || curr_w->get_d1() <= EPS)
     {
       // remove_from_queue(Q, curr_w);
+      // Q.remove(curr_w);
     }
   }
 
@@ -423,7 +426,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
 
   add_in_Q = add_in_Q && 0. < w.get_d0() && 0. < w.get_d1();
   add_in_Q = add_in_Q && abs(w.get_b1() - w.get_b0()) > EPS;
-  add_in_lw = add_in_lw && (w.get_b1() - w.get_b0()) > EPS;
+  add_in_lw = add_in_lw && abs(w.get_b1() - w.get_b0()) > EPS;
 
   if (add_in_Q)
   {
@@ -436,7 +439,7 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
   }
 }
 
-void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, map<int, list<Window *> *> &e2w)
+void propagate_window(HalfedgeDS &he, Window *p_w, PriorityQueue &Q, map<int, list<Window *> *> &e2w)
 {
   Window w = *p_w;
   addColorEdge(VIEWER, w, RowVector3d(1, 0, 1));
@@ -935,7 +938,8 @@ map<int, list<Window *> *> *exact_geodesics(HalfedgeDS &he, int id_vs)
 
   // initialize the queue Q with a window for each edge adjacent
   // to source: source_v_t
-  priority_queue<Window *, vector<Window *>, GreaterThanByDist> Q;
+  // priority_queue<Window *, vector<Window *>, GreaterThanByDist> Q;
+  PriorityQueue Q;
   map<int, list<Window *> *> *e2w = new map<int, list<Window *> *>(); // map edge id to windows
 
   init_edgeid2windows(*e2w, he);
@@ -958,7 +962,7 @@ map<int, list<Window *> *> *exact_geodesics(HalfedgeDS &he, int id_vs)
     // propagate selected window
     propagate_window(he, cur_w, Q, *e2w);
 
-    if (it > 100000)
+    if (it > 1000000)
     {
       cout << "break after " << it << "iterations" << endl;
       break;

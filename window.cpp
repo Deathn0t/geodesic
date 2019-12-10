@@ -7,7 +7,7 @@ Window::Window(double f_b0, double f_b1, double f_d0, double f_d1, double f_sigm
     if (f_b0 > f_b1)
     {
         cout << "exit constructor" << endl;
-        exit(0);
+        // exit(0);
     }
 
     if (f_b0 <= EPS)
@@ -76,11 +76,11 @@ void Window::set_b0(double new_b0)
     {
         b0 = 0.;
     }
-    else if (new_b0 - b1 > EPS)
-    {
-        cout << "exit set_b0" << endl;
-        exit(0);
-    }
+    // else if (new_b0 - b1 > EPS)
+    // {
+    //     cout << "exit set_b0" << endl;
+    //     // exit(0);
+    // }
     else
     {
         b0 = new_b0;
@@ -93,11 +93,11 @@ void Window::set_b1(double new_b1)
     {
         b1 = norm_edge();
     }
-    else if (EPS < b0 - new_b1)
-    {
-        cout << "exit set_b1" << endl;
-        exit(0);
-    }
+    // else if (EPS < b0 - new_b1)
+    // {
+    //     cout << "exit set_b1" << endl;
+    //     exit(0);
+    // }
     else
     {
         b1 = new_b1;

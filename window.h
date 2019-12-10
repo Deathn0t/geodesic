@@ -1,5 +1,5 @@
-#pragma once
-
+#ifndef Window_H
+#define Window_H
 #include <igl/opengl/glfw/Viewer.h>
 
 using namespace Eigen;
@@ -80,3 +80,5 @@ public:
 
     void print();
 };
+
+#endif // Included_NameModel_H
