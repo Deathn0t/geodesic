@@ -162,11 +162,11 @@ std::tuple<Vector2d, Vector2d, double> point_equidist(Window &leftWindow, Window
   double delta = (B * B) - (4 * A * C);
 
   // cout << "delta: " << delta << endl;
-  if (abs(delta) <= EPS)
+  if (0 <= delta && delta <= EPS )
   {
     px = -B / (2 * A);
   }
-  else if (delta > 0)
+  else if (delta > EPS)
   {
     px1 = (-B - sqrt(delta)) / (2 * A);
     px2 = (-B + sqrt(delta)) / (2 * A);
@@ -193,9 +193,17 @@ std::tuple<Vector2d, Vector2d, double> point_equidist(Window &leftWindow, Window
     cout << endl;
     // exit(0);
   }
+  
+
 
   px = max(px, inter(0));
   px = min(px, inter(1));
+
+  /*if (isnan(px))
+  {
+    exit(0);
+  }
+  */
 
   return std::make_tuple(s_lw, s_rw, px);
 }
@@ -252,6 +260,13 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
           cout << "inter: " << inter << endl;
           // w is the left window
           curr_w->set_d0((curr_w->get_s() - Vector2d(w.get_b1(), 0)).norm());
+          std::cout<<"B0 - 1"<<std::endl;
+          cout << "w: " << endl;
+          w.print();
+          cout << endl;
+          cout << "curr_w: " << endl;
+          curr_w->print();
+          cout << endl;
           curr_w->set_b0(w.get_b1());
           cout << "#2" << endl;
         }
@@ -285,6 +300,13 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
           // curr_w is the left window
           cout << "### 3" << endl;
           w.set_d0((w.get_s() - Vector2d(curr_w->get_b1(), 0)).norm());
+          std::cout<<"B0 - 2"<<std::endl;
+          cout << "w: " << endl;
+          w.print();
+          cout << endl;
+          cout << "curr_w: " << endl;
+          curr_w->print();
+          cout << endl;
           w.set_b0(curr_w->get_b1());
           cout << "### 4" << endl;
         }
@@ -311,16 +333,34 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
         cout << "inter: " << endl
              << inter << endl;
         cout << "px: " << px << endl;
-
+        
         if (w.get_b1() > curr_w->get_b0() && w.get_b0() < curr_w->get_b0() + EPS)
         {
           // w is the left window
+          std::cout<<"B0 - 31"<<std::endl;
+          cout << "w: " << endl;
+          w.print();
+          cout << endl;
+          cout << "curr_w: " << endl;
+          curr_w->print();
+          cout << endl;
+          cout<<"s  w"<< w.get_s() <<std::endl;
+          cout<<"s  curr_w "<<curr_w->get_s() <<std::endl;
           cout << "if" << endl;
+        
           w.set_d1((w.get_s() - px2d).norm());
+          
           w.set_b1(px);
           cout << " ##1 " << endl;
 
           curr_w->set_d0((curr_w->get_s() - px2d).norm());
+           std::cout<<"B0 - 32"<<std::endl;
+          cout << "w: " << endl;
+          w.print();
+          cout << endl;
+          cout << "curr_w: " << endl;
+          curr_w->print();
+          cout << endl;
           curr_w->set_b0(px);
           cout << " ##2 " << endl;
         }
@@ -329,6 +369,13 @@ void push_window(Window &w, priority_queue<Window *, vector<Window *>, GreaterTh
           // curr_w is the left window
           cout << "else if" << endl;
           w.set_d0((w.get_s() - px2d).norm());
+          std::cout<<"B0 - 4"<<std::endl;
+          cout << "w: " << endl;
+          w.print();
+          cout << endl;
+          cout << "curr_w: " << endl;
+          curr_w->print();
+          cout << endl;
           w.set_b0(px);
 
           curr_w->set_d1((curr_w->get_s() - px2d).norm());
@@ -560,7 +607,7 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
       else //! this case should not happen
       {
         std::cout << "error case I" << std::endl;
-        // exit(0);
+        exit(0);
       }
     }
     else if (w.get_b0() <= EPS) // case II
@@ -661,7 +708,7 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
 
         cout << "bool 1: " << point_in_range(int_l0_lp2p1, p22d, p12d) << endl;
         cout << "bool 2: " << point_in_range(int_l1_lp2p1, p22d, p12d) << endl;
-        // exit(0);
+         exit(0);
       }
     }
     else if (((w.get_v1() - w.get_v0()).norm() - w.get_b1()) <= EPS) // case II SYM
@@ -762,13 +809,13 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
 
         cout << "bool 1: " << point_in_range(int_l0_lp2p1, p22d, p12d) << endl;
         cout << "bool 2: " << point_in_range(int_l1_lp2p1, p22d, p12d) << endl;
-        // exit(0);
+         exit(0);
       }
     }
     else //! this case should not happen
     {
       std::cout << "error I - II - II SYM" << std::endl;
-      // exit(0);
+       exit(0);
     }
   }
   else //case IV
@@ -822,7 +869,7 @@ void propagate_window(HalfedgeDS &he, Window *p_w, priority_queue<Window *, vect
     else //! this case should not happen
     {
       std::cout << "error IV" << std::endl;
-      // exit(0);
+       exit(0);
     }
   }
 }
