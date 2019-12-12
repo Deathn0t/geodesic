@@ -10,56 +10,25 @@
 #include <ostream>
 #include <queue>
 #include <tuple>
+#include <chrono>
 
 #include "HalfedgeBuilder.cpp"
 #include "geoutils.h"
 #include "visutils.h"
 #include "window.h"
 #include "priority_queue.h"
+#include "LoopSubdivision.cpp"
+#include "SphereGeneration.cpp"
 
 using namespace Eigen;
 using namespace std;
-// to use the classes provided by Eigen library
+using namespace std::chrono;
+
 MatrixXd V1; // matrix storing vertex coordinates of the input curve
 MatrixXi F1;
 igl::opengl::glfw::Viewer VIEWER;
 int ID_VS, ID_VT;
 HalfedgeDS *HE;
-
-// struct GreaterThanByDist
-// {
-//   bool operator()(Window *w1, Window *w2) const
-//   {
-//     // return w1->get_sigma() > w2->get_sigma();
-//     return w1->min_geodist() > w2->min_geodist();
-//   }
-// };
-
-// void remove_from_queue(priority_queue<Window *, vector<Window *>, GreaterThanByDist> &Q, Window *pw)
-// {
-//   std::queue<Window *> q;
-//   Window *curr_pw;
-//   for (int i = 0; i < Q.size(); i++)
-//   {
-//     curr_pw = Q.top();
-//     Q.pop();
-
-//     if (curr_pw == pw)
-//     {
-//       break;
-//     }
-//     else
-//     {
-//       q.push(curr_pw);
-//     }
-//   }
-//   for (int i = 0; i < q.size(); i++)
-//   {
-//     curr_pw = q.front();
-//     q.pop();
-//     Q.push(curr_pw);
-//   }
-// }
 
 void add_window_Q(std::map<int, list<Window *> *> &e2w, PriorityQueue &Q, Vector3d &vs, Vector3d &v0, Vector3d &v1, int edge_id, int v0id, int v1id)
 {
@@ -730,7 +699,7 @@ map<int, list<Window *> *> *exact_geodesics(HalfedgeDS &he, int id_vs)
     // propagate selected window
     propagate_window(he, cur_w, Q, *e2w);
 
-    if (it > 200000)
+    if (it > 2000000)
     {
       cout << "break after " << it << "iterations" << endl;
       break;
@@ -878,6 +847,36 @@ void show_source_target(igl::opengl::glfw::Viewer &viewer)
       .add_points(V1.row(ID_VT), RowVector3d(0, 0.5, 0));
 }
 
+double avgDist(int v, HalfedgeDS &he, VectorXd d)
+{
+  // TO BE COMPLETED
+  int e = he.getEdge(v);
+  int acc = 0;
+  double val, res;
+
+  res = 0;
+  val = d(he.getTarget(he.getOpposite(e)), 0);
+  if (!isnan(val))
+  {
+    res = res + val;
+    acc++;
+  }
+
+  int pEdge = he.getOpposite(he.getNext(e));
+
+  while (pEdge != e)
+  {
+    val = d(he.getTarget(he.getOpposite(pEdge)), 0);
+    if (!isnan(val))
+    {
+      res = res + val;
+      acc++;
+    }
+    pEdge = he.getOpposite(he.getNext(pEdge));
+  }
+  return res / acc;
+}
+
 bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier)
 {
   std::cout << "pressed Key: " << key << " " << (unsigned int)key << std::endl;
@@ -885,10 +884,22 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
   if (key == '1')
   {
     viewer.data().clear();
+
+    HalfedgeBuilder *builder = new HalfedgeBuilder();
+    HalfedgeDS he = builder->createMeshWithFaces(V1.rows(), F1);
+    HE = &he;
+
+    auto start = high_resolution_clock::now();
+
     map<int, list<Window *> *> *e2w = exact_geodesics(*HE, ID_VS);
 
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+
     double d = compute_geodist(ID_VT, *HE, *e2w);
+
     cout << "PERSO(1): geodesic distance for target vertex " << ID_VT << " -> " << d << endl;
+    cout << "Duration: " << duration.count() << " microseconds" << endl;
 
     set_meshes(viewer, V1, F1);
     for (map<int, list<Window *> *>::iterator it = e2w->begin(); it != e2w->end(); ++it)
@@ -899,19 +910,43 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
       }
     }
     show_source_target(viewer);
+    return true;
   }
   else if (key == '2')
   {
     viewer.data().clear();
+
+    HalfedgeBuilder *builder = new HalfedgeBuilder();
+    HalfedgeDS he = builder->createMeshWithFaces(V1.rows(), F1);
+    HE = &he;
+
+    auto start = high_resolution_clock::now();
+
     map<int, list<Window *> *> *e2w = exact_geodesics(*HE, ID_VS);
 
-    Eigen::VectorXd d(V1.rows(), 1);
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+
+    VectorXd d(V1.rows(), 1);
     for (int vt_i = 0; vt_i < V1.rows(); vt_i++)
     {
       d(vt_i, 0) = compute_geodist(vt_i, *HE, *e2w);
-      cout << "V " << vt_i << ", geodist= " << d(vt_i, 0) << endl;
+    }
+    for (int vt_i = 0; vt_i < V1.rows(); vt_i++)
+    {
+      if (isnan(d(vt_i, 0)))
+      {
+        d(vt_i, 0) = avgDist(vt_i, *HE, d);
+        cout << "V " << vt_i << ", geodist= " << d(vt_i, 0) << " ISNAN" << endl;
+      }
+      else
+      {
+        cout << "V " << vt_i << ", geodist= " << d(vt_i, 0) << endl;
+      }
     }
     cout << "PERSO(2): geodesic distance for target vertex " << ID_VT << " -> " << d(ID_VT, 0) << endl;
+    cout << "Duration: " << duration.count() << " microseconds" << endl;
+
     const double strip_size = 0.05;
     // The function should be 1 on each integer coordinate
     d = (d / strip_size * igl::PI).array().sin().abs().eval();
@@ -923,8 +958,54 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
     viewer.data().set_colors(C);
     show_source_target(viewer);
     // update the mesh (both coordinates and faces)
+    return true;
   }
   else if (key == '3')
+  {
+    viewer.data().clear();
+
+    HalfedgeBuilder *builder = new HalfedgeBuilder();
+    HalfedgeDS he = builder->createMeshWithFaces(V1.rows(), F1);
+    HE = &he;
+
+    auto start = high_resolution_clock::now();
+
+    map<int, list<Window *> *> *e2w = exact_geodesics(*HE, ID_VS);
+
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+
+    VectorXd d(V1.rows(), 1);
+    for (int vt_i = 0; vt_i < V1.rows(); vt_i++)
+    {
+      d(vt_i, 0) = compute_geodist(vt_i, *HE, *e2w);
+    }
+    for (int vt_i = 0; vt_i < V1.rows(); vt_i++)
+    {
+      if (isnan(d(vt_i, 0)))
+      {
+        d(vt_i, 0) = avgDist(vt_i, *HE, d);
+        cout << "V " << vt_i << ", geodist= " << d(vt_i, 0) << " ISNAN" << endl;
+      }
+      else
+      {
+        cout << "V " << vt_i << ", geodist= " << d(vt_i, 0) << endl;
+      }
+    }
+    cout << "PERSO(2): geodesic distance for target vertex " << ID_VT << " -> " << d(ID_VT, 0) << endl;
+    cout << "Duration: " << duration.count() << " microseconds" << endl;
+
+    // Compute per-vertex colors
+    Eigen::MatrixXd C;
+    igl::colormap(igl::COLOR_MAP_TYPE_INFERNO, d, false, C);
+    // set_meshes(viewer, V1, F1);
+    viewer.data().set_mesh(V1, F1);
+    viewer.data().set_colors(C);
+    show_source_target(viewer);
+    // update the mesh (both coordinates and faces)
+    return true;
+  }
+  else if (key == '4')
   {
     cout << "Execute LIB IGL" << endl;
     // FROM LIB IGL: https://github.com/libigl/libigl/blob/master/tutorial/206_GeodesicDistance/main.cpp
@@ -936,8 +1017,17 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
     // All vertices are the targets
     VT.setLinSpaced(V1.rows(), 0, V1.rows() - 1);
     Eigen::VectorXd d;
+
+    auto start = high_resolution_clock::now();
+
     igl::exact_geodesic(V1, F1, VS, FS, VT, FT, d);
+
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+
     cout << "LIB IGL: geodesic distance for target vertex " << ID_VT << " -> " << d(ID_VT) << endl;
+    cout << "Duration: " << duration.count() << " microseconds" << endl;
+
     const double strip_size = 0.05;
     // The function should be 1 on each integer coordinate
     d = (d / strip_size * igl::PI).array().sin().abs().eval();
@@ -948,8 +1038,84 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier
     viewer.data().set_mesh(V1, F1);
     viewer.data().set_colors(C);
     show_source_target(viewer);
+    return true;
   }
+  else if (key == '5')
+  {
+    cout << "Execute LIB IGL" << endl;
+    // FROM LIB IGL: https://github.com/libigl/libigl/blob/master/tutorial/206_GeodesicDistance/main.cpp
+    viewer.data().clear();
+    Eigen::VectorXi VS, FS, VT, FT;
+    // The selected vertex is the source
+    VS.resize(1);
+    VS << ID_VS;
+    // All vertices are the targets
+    VT.setLinSpaced(V1.rows(), 0, V1.rows() - 1);
+    Eigen::VectorXd d;
 
+    auto start = high_resolution_clock::now();
+
+    igl::exact_geodesic(V1, F1, VS, FS, VT, FT, d);
+
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+
+    cout << "LIB IGL: geodesic distance for target vertex " << ID_VT << " -> " << d(ID_VT) << endl;
+    cout << "Duration: " << duration.count() << " microseconds" << endl;
+    // Compute per-vertex colors
+    Eigen::MatrixXd C;
+    igl::colormap(igl::COLOR_MAP_TYPE_INFERNO, d, false, C);
+    // Plot the mesh
+    viewer.data().set_mesh(V1, F1);
+    viewer.data().set_colors(C);
+    show_source_target(viewer);
+    return true;
+  }
+  else if (key == '6')
+  {
+    HalfedgeBuilder *builder = new HalfedgeBuilder();
+    HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1)); // create the half-edge representation
+    LoopSubdivision *loop = new LoopSubdivision(V1, F1, he);       //
+    loop->subdivide();                                             // perform one round subdivision
+    loop->print(0);
+
+    // update the current mesh
+    V1 = loop->getVertexCoordinates(); // update vertex coordinates
+    F1 = loop->getFaces();
+    viewer.data().clear();
+    viewer.data().set_mesh(V1, F1);
+    return true;
+  }
+  else if (key == '7')
+  {
+    HalfedgeBuilder *builder = new HalfedgeBuilder();
+    HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1)); // create the half-edge representation
+    LoopSubdivision *loop = new LoopSubdivision(V1, F1, he);       //
+    loop->subdivide();                                             // perform one round subdivision
+    loop->print(0);
+
+    // update the current mesh
+    V1 = loop->getVertexCoordinates(); // update vertex coordinates
+    F1 = loop->getFaces();
+    viewer.data().clear();
+    viewer.data().set_mesh(V1, F1);
+    return true;
+  }
+  else if (key == '8')
+  {
+    HalfedgeBuilder *builder = new HalfedgeBuilder();
+    HalfedgeDS he = (builder->createMeshWithFaces(V1.rows(), F1)); // create the half-edge representation
+    SphereGeneration *loop = new SphereGeneration(V1, F1, he);     //
+    loop->subdivide();                                             // perform one round subdivision
+    loop->print(0);
+
+    // update the current mesh
+    V1 = loop->getVertexCoordinates(); // update vertex coordinates
+    F1 = loop->getFaces();
+    viewer.data().clear();
+    viewer.data().set_mesh(V1, F1);
+    return true;
+  }
   return false;
 }
 
@@ -987,15 +1153,11 @@ int main(int argc, char *argv[])
   // ID_VS = 1195;
   // ID_VT = 1902; // gargoyle paper
 
-  ID_VS = 200;
-  ID_VT = 300; // chandelier
+  // ID_VS = 200;
+  // ID_VT = 300; // chandelier
 
   igl::readOFF(file, V1, F1);
   igl::opengl::glfw::Viewer &viewer = VIEWER;
-
-  HalfedgeBuilder *builder = new HalfedgeBuilder();
-  HalfedgeDS he = builder->createMeshWithFaces(V1.rows(), F1);
-  HE = &he;
 
   set_meshes(viewer, V1, F1);
   show_source_target(viewer);
